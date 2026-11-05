@@ -1,35 +1,55 @@
 name: Deploy docs to GitHub Pages
+
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v7
         with:
-          fetch-depth: "0"
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
+          fetch-depth: 0 # lastUpdated reads the git history
 
-      - run: |
-          echo "COMMIT_MSG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-      - run: uv sync
-      - run: uv run mkdocs build
-      - name: Git push assets to "gh-pages" branch
-        run: |
-          cd site || exit 1
-          git init
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b gh-pages
-          git add .
-          git commit -m "Deployed ${{ env.COMMIT_MSG }}"
-          git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-          git push -f -u origin gh-pages
+      - name: Configure Pages
+        id: pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6
+
+      # The site URL is https://core.prizrak.app (astro.config.mjs). Only the
+      # base path comes from Pages: empty with the custom domain, /<repo>
+      # if the domain is ever removed.
+      - name: Pass the Pages base path to Astro
+        if: github.event_name != 'pull_request'
+        run: echo "BASE_PATH=${{ steps.pages.outputs.base_path }}" >> "$GITHUB_ENV"
+
+      - name: Install, build and upload the site
+        uses: withastro/action@v6
+        with:
+          path: .
+          node-version: 24
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

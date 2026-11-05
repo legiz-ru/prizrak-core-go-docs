@@ -1,0 +1,89 @@
+---
+title: "Содержимое файла rule-providers"
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+## classical
+
+Тип `classical` поддерживает все типы [правил маршрутизации](/ru/config/rules/) (кроме rule-set/sub-rule).
+
+<Tabs>
+<TabItem label="yaml">
+
+```yaml
+payload:
+- DOMAIN-SUFFIX,google.com
+- DOMAIN-KEYWORD,google
+- DOMAIN,ad.com
+- SRC-IP-CIDR,192.168.1.201/32
+- IP-CIDR,127.0.0.0/8
+- GEOIP,CN
+- DST-PORT,80
+- SRC-PORT,7777
+```
+
+</TabItem>
+<TabItem label="text">
+
+```text
+DOMAIN-SUFFIX,google.com
+DOMAIN-KEYWORD,google
+DOMAIN,ad.com
+SRC-IP-CIDR,192.168.1.201/32
+IP-CIDR,127.0.0.0/8
+GEOIP,CN
+DST-PORT,80
+SRC-PORT,7777
+```
+
+</TabItem>
+</Tabs>
+
+## domain
+
+Содержимое набора правил `domain` должно соответствовать [подстановочным знакам clash](/ru/handbook/syntax/#domain-wildcards).
+
+<Tabs>
+<TabItem label="yaml">
+
+```yaml
+payload:
+- '.blogger.com'
+- '*.*.microsoft.com'
+- 'books.itunes.apple.com'
+```
+
+</TabItem>
+<TabItem label="text">
+
+```text
+.blogger.com
+*.*.microsoft.com
+books.itunes.apple.com
+```
+
+</TabItem>
+</Tabs>
+
+## ipcidr
+
+<Tabs>
+<TabItem label="yaml">
+
+```yaml
+payload:
+- '192.168.1.0/24'
+- '10.0.0.0.1/32'
+```
+
+</TabItem>
+<TabItem label="text">
+
+```text
+192.168.1.0/24
+10.0.0.0.1/32
+``` 
+
+</TabItem>
+</Tabs>

@@ -1,0 +1,50 @@
+---
+title: "XHTTP h2-flow через маппер хоста"
+description: Включить регулятор потока HTTP/2 Prizrak-Core для XHTTP-хостов.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Для хостов с транспортом XHTTP Prizrak-Core умеет включать [регулятор потока HTTP/2](/ru/config/proxies/xhttp/) 👻. С ним сервер присылает данные не быстрее, чем клиент их читает, и не заполняет большие окна HTTP/2. Это снижает расход памяти на клиенте и помогает на слабых устройствах. Сервер Xray настраивать не нужно: регулятор работает на стороне клиента через стандартное управление потоком HTTP/2. Если на сервере стоит [Jolymmiles/Xray-core](https://github.com/Jolymmiles/Xray-core) со своим регулятором (`h2Flow`), они работают вместе, и включать регулятор можно с любой стороны или с обеих.
+
+Регулятор выключен по умолчанию и действует только в режиме h2: ALPN `h2` или пустой ALPN. При ALPN `h3` или `http/1.1` параметр ни на что не влияет.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    {
+      "op": "set",
+      "to": "xhttp-opts.h2-flow",
+      "value": {
+        "enabled": true,
+        "max-stream-receive-window": 16777216,
+        "max-connection-receive-window": 33554432
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+Узел получит блок в `xhttp-opts`:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    network: xhttp
+    # ...
+    xhttp-opts:
+      # ...
+      h2-flow:
+        enabled: true
+        max-stream-receive-window: 16777216
+        max-connection-receive-window: 33554432
+```
+
+`max-stream-receive-window` и `max-connection-receive-window` — необязательные окна приёма HTTP/2 в байтах на поток и на соединение, от 65535 до 1 ГиБ. С регулятором это потолок окна. Без них действуют окна Go по умолчанию (4 МиБ на поток), и в `value` достаточно `"enabled": true`.
+
+<Aside type="note">
+Добавляйте правило только хостам с транспортом XHTTP: у других транспортов `xhttp-opts` не используется. Старый ключ `h2-flow-control: true` тоже работает, но основной вариант — блок `h2-flow`.
+</Aside>

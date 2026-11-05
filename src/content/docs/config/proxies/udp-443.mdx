@@ -1,0 +1,56 @@
+---
+title: "👻 udp-443: QUIC reject"
+description: The udp-443 option sends UDP traffic to port 443 (QUIC) that would go through a proxy into REJECT.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`udp-443` 👻 is a [common proxy field](/config/proxies/): it decides what happens to UDP traffic to port 443, which is mostly QUIC (HTTP/3), when a rule sends it through this proxy. With `reject` the flow goes into REJECT, and browsers retry over TCP (HTTP/2). That usually works better through a proxy than QUIC tunnelled over TCP or over a lossy UDP path.
+
+```yaml
+proxies:
+  - name: vless
+    type: vless
+    # ...
+    udp-443: reject   # or quic: reject
+```
+
+| Key | Values | Default |
+|---|---|---|
+| `udp-443` | `allow`, `reject` | `allow` |
+| `quic` | alias of `udp-443` | |
+
+- Values are lower case; `Reject` or any other value fails the proxy with `unsupport udp-443 value`.
+- `quic` is an alias. Both keys with the same value are fine; different values fail with `conflicting udp-443 and quic values`. `udp_443` is read as `udp-443`.
+- Every proxy type takes it (vless, vmess, trojan, ss, hysteria2, wireguard, direct, `freedom` and the rest), in `proxies` and in nodes of proxy providers.
+- Proxy groups do not take it: set it on the nodes, or for a whole provider through `override`.
+
+## For a whole provider
+
+```yaml
+proxy-providers:
+  sub:
+    type: http
+    url: https://example.com/sub
+    override:
+      udp-443: reject
+```
+
+`override` writes the key into every node of the provider before the node is parsed.
+
+## How it works
+
+- Only UDP flows to destination port 443 are affected, whatever the host; TCP/443 and UDP to other ports go through the proxy as before.
+- The rejected flow behaves like REJECT for UDP: writes are dropped and reads end at once, no ICMP is sent. The connection shows `REJECT` in its chain in the logs and the API.
+- The check runs outside everything else on the proxy, before smux and mux.cool.
+- The [`smart` group](/config/proxy-groups/smart/) passes such a REJECT through at once, without pinning the node or counting it in the statistics.
+
+<Aside type="caution">
+- With `udp: false` the option does nothing: such a proxy is skipped for UDP already when rules are matched, and UDP/443 goes to the next rule.
+- A proxy used as `dialer-proxy` for a QUIC-based proxy (hysteria2, tuic, wireguard, masque…) whose server listens on port 443 would reject that proxy's own packets. Do not set `reject` on such a dialer.
+- mux.cool has its own [`xudp-proxy-udp443`](/config/proxies/mux-cool/), `reject` by default: with mux.cool on, UDP/443 is refused (with an error) even under `udp-443: allow`, until it is set to `allow` or `skip`.
+</Aside>
+
+Plain mihomo ignores `udp-443`. In mihomo the same effect needs a rule such as `AND,((NETWORK,UDP),(DST-PORT,443)),REJECT`, which applies to every proxy at once.
+
+For Remnawave panels, see [udp-443 via the host mapper](/remnawave/udp-443/).

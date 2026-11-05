@@ -1,0 +1,27 @@
+---
+title: Prizrak-Core
+description: Documentation of Prizrak-Core, a proxy core based on mihomo (Clash.Meta) with Xray-core compatibility.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+**Prizrak-Core** is a proxy core based on [mihomo](https://github.com/MetaCubeX/mihomo) (formerly Clash.Meta). It powers [Prizrak-Box](https://docs.prizrak.app/) on every platform and also runs on its own, anywhere mihomo runs.
+
+Configurations written for mihomo work in Prizrak-Core unchanged. On top of mihomo the core adds Xray-core compatibility (mux.cool, finalmask, REALITY with ML-DSA-65, XHTTP flow control, mKCP for VLESS), the `smart` proxy group, the `freedom` outbound, backup provider addresses and stricter health checks.
+
+- Source code: [legiz-ru/Prizrak-Core](https://github.com/legiz-ru/Prizrak-Core)
+- Releases: [latest](https://github.com/legiz-ru/Prizrak-Core/releases/latest)
+- Docker: `ghcr.io/legiz-ru/prizrak-core`
+
+## How to read these docs
+
+These docs are the [mihomo documentation](https://github.com/MetaCubeX/Meta-Docs) checked against the Prizrak-Core code, with Prizrak-Core's own options added.
+
+**👻 marks what exists only in Prizrak-Core.** A 👻 next to a page, a section or an option means that mihomo does not have it: a config that uses it needs Prizrak-Core (or Prizrak-Box), and plain mihomo ignores the key or refuses the config.
+
+<CardGrid>
+  <LinkCard title="Getting started" description="Download the core, run it as a service, pick a client." href="/startup/" />
+  <LinkCard title="Configuration" description="Every config section: general, DNS, inbounds, proxies, groups, rules, providers." href="/config/" />
+  <LinkCard title="👻 Differences from mihomo" description="What Prizrak-Core adds to mihomo, with links to each option." href="/config/#main-differences-from-mihomo" />
+  <LinkCard title="Remnawave integration" description="Deliver Prizrak-Core options to clients through the Remnawave host mapper." href="/remnawave/" />
+</CardGrid>

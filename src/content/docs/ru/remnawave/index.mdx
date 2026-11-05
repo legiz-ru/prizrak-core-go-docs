@@ -1,0 +1,76 @@
+---
+title: Маппер хоста Remnawave
+description: Как передать параметры Prizrak-Core клиентам через маппер хоста Remnawave.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+[Remnawave](https://docs.rw/) собирает подписку Mihomo из хостов панели. В обычном узле Mihomo нет ни одного 👻 параметра Prizrak-Core: mux.cool, finalmask, ключа REALITY ML-DSA-65, регулятора потока XHTTP, `udp-443`. Их добавляет **маппер хоста** — список операций, которые Remnawave выполняет над узлом хоста после того, как генератор его собрал.
+
+- Меняются только те форматы подписки, чьи списки заполнены. Если заполнен только `mihomo`, подписки Xray JSON, base64 и sing-box остаются как были.
+- Клиенты на обычном mihomo незнакомые ключи игнорируют и работают как раньше, кроме случаев, оговорённых на страницах (finalmask и mKCP: без них клиент до сервера не достучится).
+- Prizrak-Box присылает `User-Agent`, начинающийся с `prizrak-box/`, отдельное ядро — `Prizrak-Core/…`. Оба получают подписку Mihomo с применённым маппером. Заголовки, шаблоны и шифрование age для Prizrak-Box описаны в [документации Prizrak-Box](https://docs.prizrak.app/ru/for-devs/remnawave-integration/).
+
+## Как настроить маппер
+
+<Steps>
+
+1. Откройте **Хосты** и выберите хост для редактирования.
+2. В блоке **Опции** нажмите **Добавить** и в группе **Расширенные** выберите **Маппер**.
+3. В разделе **Расширенные** появится строка **Маппер** со статусом **Не задано**. Нажмите на неё, откроется JSON-редактор маппера.
+4. Вставьте JSON из примера и нажмите **Сохранить** в карточке хоста. Статус маппера сменится на **Настроено**.
+
+</Steps>
+
+<Aside type="note">
+Проверьте, что в блоке **Исключить из типа подписки** не отмечен **Mihomo**, иначе хост вообще не попадёт в подписку Mihomo.
+</Aside>
+
+## Операции
+
+В JSON маппера по списку на каждый формат подписки: `xrayJson`, `mihomo`, `base64` и `singbox`. Prizrak-Core читает подписку Mihomo, поэтому в примерах заполнен только `mihomo`. Операции выполняются по порядку, и каждая видит то, что записали предыдущие.
+
+| Операция | Поля | Что делает |
+|---|---|---|
+| `set` | `to`, `value` | Записывает `value` (строку, число, логическое значение, массив или объект) по пути `to`, создавая недостающие объекты. |
+| `copy` | `from`, `to` | Читает значение и записывает его в `to`. Если по `from` ничего нет, операция пропускается и `to` не создаётся. |
+| `unset` | `to` | Удаляет ключ. Опустевший родитель остаётся как `{}`. |
+
+**Откуда читает `copy`.** `from` с префиксом `$host.` читает хост после применения его переопределений. Доступны только эти части хоста (со всем вложенным): `address`, `port`, `finalRemark`, `protocol`, `transport`, `security`, `protocolOptions`, `transportOptions`, `securityOptions`, `mux`, `streamOverrides.finalMask`, `streamOverrides.sockopt`, `clientOverrides.serverDescription`, `metadata.remark`, `metadata.tags`, `metadata.inboundTag`. Любой другой `from` — путь в **сыром инбаунде** профиля конфигурации хоста, например `streamSettings.realitySettings.serverNames.0`.
+
+**Как писать `to`.** `to` — путь от корня узла в ключах mihomo (kebab-case): `xhttp-opts.h2-flow`, `reality-opts.mldsa65-verify`. Точки разделяют уровни, поэтому ключ с точкой пишется в квадратных скобках: `['mux.cool']`. Записанный как `mux.cool`, он превратится в `mux: { cool: … }`, а такое Prizrak-Core не читает. Путь, который проходит через значение-не-объект (строку, число), отклоняется, поэтому существующее значение случайно не затрётся.
+
+<Aside type="caution">
+Remnawave не сверяет `to` с mihomo: ключ с опечаткой запишется как настоящий, а ядро его проигнорирует. После сохранения проверьте узел в подписке: запросите её с `User-Agent: prizrak-box/1.0` и посмотрите прокси этого хоста.
+</Aside>
+
+## Примеры
+
+Каждый пример — готовый JSON маппера. Несколько возможностей на одном хосте пишутся в один список `mihomo`.
+
+| Страница | Что добавляет маппер |
+|---|---|
+| [mux.cool](/ru/remnawave/mux-cool/) | Мультиплексирование, совместимое с Xray (блок `mux.cool`). |
+| [REALITY ML-DSA-65](/ru/remnawave/reality/) | `reality-opts.mldsa65-verify` для серверов с `mldsa65Seed`. |
+| [finalmask](/ru/remnawave/finalmask/) | Маски трафика под `finalmask` инбаунда сервера. |
+| [mKCP и xdns](/ru/remnawave/kcp-xdns/) | Весь прокси VLESS поверх mKCP для `kcp`-хоста, например DNS-туннеля. |
+| [XHTTP h2-flow](/ru/remnawave/xhttp-h2-flow/) | Регулятор потока HTTP/2 для XHTTP-хостов. |
+| [udp-443](/ru/remnawave/udp-443/) | Блокировать QUIC (UDP/443) через этот узел, чтобы браузеры перешли на TCP. |
+
+Хост с несколькими параметрами сразу:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "udp-443", "value": "reject" },
+    { "op": "set", "to": "reality-opts.mldsa65-verify", "value": "<mldsa65Verify>" },
+    {
+      "op": "set",
+      "to": "['mux.cool']",
+      "value": { "enabled": true, "max-concurrency": 8, "xudp-concurrency": 16 }
+    }
+  ],
+  "base64": []
+}
+```

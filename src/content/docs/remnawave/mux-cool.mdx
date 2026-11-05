@@ -1,0 +1,51 @@
+---
+title: "mux.cool via the host mapper"
+description: Turn on Xray-compatible mux.cool multiplexing for a Remnawave host.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prizrak-Core supports [mux.cool multiplexing](/config/proxies/mux-cool/) 👻, compatible with Xray. Xray servers managed by Remnawave need no extra setup: they accept mux.cool on their own.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    {
+      "op": "set",
+      "to": "['mux.cool']",
+      "value": {
+        "enabled": true,
+        "max-carriers": 4,
+        "max-concurrency": 8,
+        "max-connections": 3,
+        "xudp-concurrency": 16,
+        "xudp-proxy-udp443": "reject"
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+The key contains a dot, so `to` is written in brackets: `['mux.cool']`. In the Mihomo subscription the proxy gets this block:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    mux.cool:
+      enabled: true
+      max-carriers: 4
+      max-concurrency: 8
+      max-connections: 3
+      xudp-concurrency: 16
+      xudp-proxy-udp443: reject
+```
+
+The options are described on the [mux.cool page](/config/proxies/mux-cool/). `xudp-proxy-udp443` is `reject` by default, so with mux.cool on, QUIC (UDP/443) does not go through this node unless you set `allow` or `skip`.
+
+<Aside type="caution">
+Do not turn on `mux.cool` and `smux` on the same proxy. If the host already has an smux block from Remnawave, remove it in the same mapper: `{ "op": "unset", "to": "smux" }`. Clients on plain mihomo ignore `mux.cool` and connect without multiplexing.
+</Aside>

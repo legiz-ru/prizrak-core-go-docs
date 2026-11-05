@@ -1,89 +1,36 @@
-# Meta-Docs
+# Prizrak-Core docs
 
-[mihomo](https://github.com/MetaCubeX/mihomo/tree/Alpha) 的文档
+Documentation of [Prizrak-Core](https://github.com/legiz-ru/Prizrak-Core), the mihomo-based proxy core of Prizrak-Box, in English and Russian.
 
-## 使用方法
+The content is the [MetaCubeX/Meta-Docs](https://github.com/MetaCubeX/Meta-Docs) documentation of mihomo, checked against the Prizrak-Core code, plus Prizrak-Core's own options. Options and pages that exist only in Prizrak-Core are marked with 👻. The design follows the [Prizrak-Box docs](https://docs.prizrak.app/).
 
-### 安装 uv
+Built with [Astro](https://astro.build/) and [Starlight](https://starlight.astro.build/).
 
-```bash
-推荐使用 [uv](https://docs.astral.sh/uv/) 管理 Python 和项目依赖。
-```
+## Layout
 
-Windows:
+| Path | Content |
+|---|---|
+| `src/content/docs/` | English pages (the default locale) |
+| `src/content/docs/ru/` | Russian pages, same paths |
+| `src/content/docs/prizrak-core/` | Prizrak-Core features (👻) |
+| `src/content/docs/remnawave/` | Remnawave host mapper integration |
+| `sidebar.mjs` | The sidebar, with labels for both languages |
+| `src/components/`, `src/styles/` | The Prizrak-Box design: page frame, sidebar, tokens |
+| `public/img/` | Images of the mihomo pages |
 
-```powershell
-winget install --id=astral-sh.uv
-```
+Pages link to each other by absolute paths (`/config/dns/`, `/ru/config/dns/`). `astro.config.mjs` prefixes them with the site base, so the same files work on a custom domain and under `https://<owner>.github.io/<repo>/`.
 
-macOS / Linux:
+## Local preview
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-### 安装 Python
-
-项目使用 Python 3.11，首次使用可执行：
+Node.js 22.12 or newer.
 
 ```bash
-uv python install
+npm ci
+npm run dev       # http://localhost:4321
+npm run build     # static site in dist/
+npm run preview   # serve dist/
 ```
 
-### 同步依赖
+## Deploy
 
-`uv` 会自动创建并管理项目根目录下的 `.venv`。
-
-```bash
-uv sync
-```
-
-### 设置镜像源（可选）
-
-如果访问 PyPI 较慢，可以临时设置 `UV_DEFAULT_INDEX`：
-
-- PowerShell
-
-  ```powershell
-  $env:UV_DEFAULT_INDEX = "https://pypi.tuna.tsinghua.edu.cn/simple"
-  ```
-
-- bash/zsh
-
-  ```bash
-  export UV_DEFAULT_INDEX="https://pypi.tuna.tsinghua.edu.cn/simple"
-  ```
-
-### 预览修改
-
-```bash
-uv run mkdocs serve
-```
-
-### 构建文档
-
-```bash
-uv run mkdocs build
-```
-
-### 使用虚拟环境（可选）
-
-如果你确实需要手动进入虚拟环境，可以使用：
-
-- PowerShell
-
-  ```powershell
-  .\.venv\Scripts\Activate.ps1
-  ```
-
-- bash/zsh
-
-  ```bash
-  source .venv/bin/activate
-  ```
-
-退出虚拟环境：
-
-```bash
-deactivate
-```
+`.github/workflows/deploy.yml` builds the site with [withastro/action](https://github.com/withastro/action) and publishes it to GitHub Pages on every push to `main` (pull requests only build). The site is served at https://core.prizrak.app. In the repository settings **Pages → Source** must be **GitHub Actions**, and the custom domain stays in **Pages → Custom domain** (no `CNAME` file is needed with Actions). The base path comes from `actions/configure-pages`, so without the custom domain the same build works under `https://<owner>.github.io/<repo>/`.

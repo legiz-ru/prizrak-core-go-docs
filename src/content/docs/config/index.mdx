@@ -1,0 +1,41 @@
+---
+title: Configuration
+description: The sections of a Prizrak-Core config file and how Prizrak-Core differs from mihomo.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+A Prizrak-Core config is a YAML file (`config.yaml` in the working directory). Its format is the mihomo format: Prizrak-Core reads every mihomo config unchanged.
+
+**👻 marks what exists only in Prizrak-Core.** A 👻 next to a page, a section or an option means that mihomo does not have it: a config that uses it needs Prizrak-Core (or Prizrak-Box), and plain mihomo ignores the key or refuses the config.
+
+## Main differences from mihomo
+
+| Feature | mihomo | Prizrak-Core |
+|---|---|---|
+| [`smart` group](/config/proxy-groups/smart/): ML-based node selection | — | ✅ |
+| [`ping-config`](/config/proxy-groups/ping-config/): url-test / fallback / load-balance / smart count a node alive only when it really downloads data | — | ✅ |
+| [uTLS: prizrak-utls](/config/proxies/prizrak-utls/): Chrome 155 / Firefox 148 / Safari 26.3 fingerprints | `metacubex/utls` v1.8.8 | ✅ |
+| [mux.cool](/config/proxies/mux-cool/): Xray Mux and XUDP | — | ✅ client and server |
+| [REALITY](/config/proxies/reality/) with ML-DSA-65, in sync with current Xray | — | ✅ |
+| [finalmask](/config/proxies/finalmask/): Xray-core traffic masks (fragment, header-custom, sudoku, xmc, noise, udphop, xdns, xicmp) for vless and trojan | — | ✅ client and server |
+| [mKCP for VLESS](/config/proxies/finalmask/#vless-over-mkcp), as in Xray-core since finalmask (xdns DNS tunnels included) | VMess only | ✅ client |
+| [XHTTP and HTTP/2](/config/proxies/xhttp/): the `h2-flow` governor, one HTTP/2 connection at a time, 32 KiB send buffer | — | ✅ client and server |
+| [`freedom`](/config/proxies/freedom/): DIRECT with TLS fragmentation and socket options (Xray-core `freedom`) | — | ✅ |
+| [`udp-443`](/config/proxies/udp-443/): send QUIC (UDP/443) through a node or a whole provider into REJECT | — | ✅ |
+| [`fallback-urls`](/config/proxy-providers/fallback-urls/): backup addresses for http proxy and rule providers | — | ✅ |
+
+To deliver these options to clients of a Remnawave panel, see [Remnawave integration](/remnawave/).
+
+## Sections
+
+<CardGrid>
+  <LinkCard title="Complete example" description="docs/config.yaml in the Prizrak-Core repository: every option with a comment." href="https://github.com/legiz-ru/Prizrak-Core/blob/v1-19-33-fm/docs/config.yaml" />
+  <LinkCard title="General" description="Ports, mode, logging, controller, profile, geodata." href="/config/general/" />
+  <LinkCard title="DNS" description="Nameservers, fake-ip, policies, hosts." href="/config/dns/" />
+  <LinkCard title="Inbound" description="Ports, TUN and listeners." href="/config/inbound/" />
+  <LinkCard title="Proxies" description="Outbound protocols, TLS and transports." href="/config/proxies/" />
+  <LinkCard title="Proxy groups" description="select, url-test, fallback, load-balance and 👻 smart." href="/config/proxy-groups/" />
+  <LinkCard title="Routing rules" description="Rule types and logic." href="/config/rules/" />
+  <LinkCard title="Providers" description="Proxy and rule providers." href="/config/proxy-providers/" />
+</CardGrid>

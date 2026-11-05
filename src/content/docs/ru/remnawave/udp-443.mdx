@@ -1,0 +1,32 @@
+---
+title: "udp-443 через маппер хоста"
+description: Блокировать QUIC (UDP-порт 443) через хост Remnawave, чтобы браузеры перешли на TCP.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+[`udp-443`](/ru/config/proxies/udp-443/) 👻 отправляет в REJECT UDP-трафик на порт 443 (QUIC, HTTP/3), который пошёл бы через этот прокси. Браузеры тогда повторяют запрос по TCP (HTTP/2), а это через прокси обычно работает лучше, чем QUIC поверх TCP или по UDP с потерями. Остальной UDP (DNS, игры, звонки) идёт через прокси как раньше.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "udp-443", "value": "reject" }
+  ],
+  "base64": []
+}
+```
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    udp-443: reject
+```
+
+`quic: reject` — алиас, работает так же; используйте один из них.
+
+<Aside type="note">
+Клиенты Xray получают тот же эффект от flow `xtls-rprx-vision` (Xray блокирует UDP/443 для Vision, если flow не оканчивается на `-udp443`). mihomo так не делает, поэтому для Prizrak-Core параметр задаётся явно. Обычный mihomo `udp-443` проигнорирует и пропустит QUIC.
+</Aside>

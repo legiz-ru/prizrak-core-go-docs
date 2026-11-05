@@ -1,0 +1,27 @@
+---
+title: Prizrak-Core
+description: Документация Prizrak-Core — прокси-ядра на основе mihomo (Clash.Meta) с совместимостью с Xray-core.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+**Prizrak-Core** — прокси-ядро на основе [mihomo](https://github.com/MetaCubeX/mihomo) (бывший Clash.Meta). На нём работает [Prizrak-Box](https://docs.prizrak.app/ru/) на всех платформах. Ядро можно запускать и отдельно — везде, где запускается mihomo.
+
+Конфигурации для mihomo работают в Prizrak-Core без изменений. Сверх mihomo ядро добавляет совместимость с Xray-core (mux.cool, finalmask, REALITY с ML-DSA-65, регулятор потока XHTTP, mKCP для VLESS), прокси группу `smart`, исходящее `freedom`, резервные адреса провайдеров и более строгую проверку узлов.
+
+- Исходный код: [legiz-ru/Prizrak-Core](https://github.com/legiz-ru/Prizrak-Core)
+- Релизы: [последний](https://github.com/legiz-ru/Prizrak-Core/releases/latest)
+- Docker: `ghcr.io/legiz-ru/prizrak-core`
+
+## Как читать документацию
+
+Это [документация mihomo](https://github.com/MetaCubeX/Meta-Docs), сверенная с кодом Prizrak-Core и дополненная его собственными параметрами.
+
+**👻 отмечает то, что есть только в Prizrak-Core.** 👻 рядом со страницей, разделом или параметром значит, что в mihomo этого нет: конфигу с таким параметром нужен Prizrak-Core (или Prizrak-Box), а обычный mihomo ключ проигнорирует или откажется загружать конфиг.
+
+<CardGrid>
+  <LinkCard title="Начало работы" description="Скачать ядро, запустить как службу, выбрать клиент." href="/ru/startup/" />
+  <LinkCard title="Конфигурация" description="Все разделы конфига: общие, DNS, входящие, прокси, группы, правила, провайдеры." href="/ru/config/" />
+  <LinkCard title="👻 Отличия от mihomo" description="Что Prizrak-Core добавляет к mihomo, со ссылками на каждый параметр." href="/ru/config/#основные-отличия-от-mihomo" />
+  <LinkCard title="Интеграция с Remnawave" description="Как передать параметры Prizrak-Core клиентам через маппер хоста Remnawave." href="/ru/remnawave/" />
+</CardGrid>

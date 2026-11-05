@@ -1,0 +1,110 @@
+---
+// Files of the latest Prizrak-Core release, grouped by OS. Loaded in the
+// browser from the GitHub API; without it the page links to the release.
+interface Props {
+	lang?: 'en' | 'ru';
+}
+const { lang = 'en' } = Astro.props;
+const t =
+	lang === 'ru'
+		? { loading: 'Загрузка списка файлов…', failed: 'Не удалось загрузить список. Все файлы на странице', release: 'релиза', filter: 'Фильтр по имени файла, например linux-arm64' }
+		: { loading: 'Loading the file list…', failed: 'Could not load the list. All files are on the', release: 'release page', filter: 'Filter by file name, e.g. linux-arm64' };
+---
+
+<release-downloads data-repo="legiz-ru/Prizrak-Core" data-failed={t.failed} data-release={t.release}>
+	<p class="rd-version"></p>
+	<input class="rd-filter" type="search" placeholder={t.filter} aria-label={t.filter} />
+	<div class="rd-groups"><p>{t.loading}</p></div>
+</release-downloads>
+
+<script>
+	const OS = [
+		['Windows', 'windows'],
+		['Linux', 'linux'],
+		['macOS', 'darwin'],
+		['Android', 'android'],
+		['FreeBSD', 'freebsd'],
+	];
+
+	class ReleaseDownloads extends HTMLElement {
+		async connectedCallback() {
+			const repo = this.dataset.repo;
+			const releaseUrl = `https://github.com/${repo}/releases/latest`;
+			const groups = this.querySelector('.rd-groups') as HTMLElement;
+			const filter = this.querySelector('.rd-filter') as HTMLInputElement;
+			const version = this.querySelector('.rd-version') as HTMLElement;
+			try {
+				const res = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
+				if (!res.ok) throw new Error(String(res.status));
+				const rel = await res.json();
+				version.innerHTML = `<a href="${rel.html_url}">${rel.tag_name}</a>`;
+				const assets: { name: string; url: string }[] = rel.assets
+					.filter((a: any) => a.name.startsWith('prizrak-core-'))
+					.map((a: any) => ({ name: a.name, url: a.browser_download_url }));
+				const render = () => {
+					const q = filter.value.trim().toLowerCase();
+					groups.innerHTML = '';
+					for (const [title, key] of OS) {
+						const files = assets.filter((a) => a.name.includes(`-${key}-`) && (!q || a.name.toLowerCase().includes(q)));
+						if (!files.length) continue;
+						const d = document.createElement('details');
+						if (q) d.open = true;
+						d.innerHTML = `<summary>${title} <span>${files.length}</span></summary>`;
+						const ul = document.createElement('ul');
+						for (const f of files) {
+							const li = document.createElement('li');
+							const a = document.createElement('a');
+							a.href = f.url;
+							a.textContent = f.name;
+							li.appendChild(a);
+							ul.appendChild(li);
+						}
+						d.appendChild(ul);
+						groups.appendChild(d);
+					}
+				};
+				filter.addEventListener('input', render);
+				render();
+			} catch {
+				groups.innerHTML = `<p>${this.dataset.failed} <a href="${releaseUrl}">${this.dataset.release}</a>.</p>`;
+			}
+		}
+	}
+	customElements.define('release-downloads', ReleaseDownloads);
+</script>
+
+<style>
+	release-downloads {
+		display: block;
+	}
+	.rd-filter {
+		width: 100%;
+		max-width: 420px;
+		padding: 8px 12px;
+		border-radius: 8px;
+		border: 1px solid var(--border);
+		background: var(--input-bg);
+		color: var(--text);
+		font: inherit;
+	}
+	.rd-groups :global(details) {
+		margin-top: 8px;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 8px 12px;
+	}
+	.rd-groups :global(summary) {
+		cursor: pointer;
+		font-weight: 600;
+	}
+	.rd-groups :global(summary span) {
+		color: var(--text-2);
+		font-weight: 400;
+		margin-inline-start: 6px;
+	}
+	.rd-groups :global(ul) {
+		margin-top: 6px;
+		font-family: var(--__sl-font-mono);
+		font-size: 0.85em;
+	}
+</style>

@@ -1,0 +1,75 @@
+---
+title: "finalmask через маппер хоста"
+description: Передать клиентам Prizrak-Core finalmask хоста Remnawave.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Если во входящем соединении сервера Xray задан блок `finalmask`, клиенту нужны те же маски. Prizrak-Core поддерживает [finalmask](/ru/config/proxies/finalmask/) 👻 для прокси `vless` и `trojan`.
+
+## Взять маску из хоста
+
+Клиентскую маску хоста Remnawave хранит в поле **Final Mask** (`streamOverrides.finalMask`). Эту же маску получают Happ и другие клиенты Xray. Prizrak-Core читает её как есть, в записи Xray (вложенные `settings`, ключи в camelCase вроде `randRange`), поэтому маппер её просто копирует:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "copy", "from": "$host.streamOverrides.finalMask", "to": "finalmask" }
+  ],
+  "base64": []
+}
+```
+
+Если Final Mask у хоста не задана, операция пропускается, и узел остаётся без масок.
+
+## Записать маску в маппере
+
+Постоянную маску можно записать прямо в маппере, в записи mihomo. Пример с фрагментацией TLS ClientHello:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    {
+      "op": "set",
+      "to": "finalmask",
+      "value": {
+        "tcp": [
+          { "type": "fragment", "packets": "tlshello", "lengths": ["1-1"], "delays": ["0"] }
+        ]
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+Та же маска в записи Xray, как она выглядит во входящем соединении:
+
+```json
+{
+  "tcp": [
+    { "type": "fragment", "settings": { "packets": "tlshello", "lengths": ["1-1"], "delays": ["0"] } }
+  ]
+}
+```
+
+В подписке Mihomo прокси получит:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    finalmask:
+      tcp:
+        - type: fragment
+          packets: tlshello
+          lengths: ["1-1"]
+          delays: ["0"]
+```
+
+<Aside type="caution">
+Маски должны совпадать с `finalmask` входящего соединения на сервере хоста. Клиенты на обычном mihomo `finalmask` проигнорируют и до сервера с масками не достучатся: давайте маски только хостам, которыми пользуются клиенты на Prizrak-Core. Хосту на входящем `kcp` нужен маппер, который собирает весь прокси, см. [mKCP и xdns](/ru/remnawave/kcp-xdns/).
+</Aside>

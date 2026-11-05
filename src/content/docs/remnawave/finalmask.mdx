@@ -1,0 +1,75 @@
+---
+title: "finalmask via the host mapper"
+description: Give Prizrak-Core clients the finalmask of a Remnawave host.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+If the inbound of an Xray server has a `finalmask` block, the client needs the matching masks. Prizrak-Core supports [finalmask](/config/proxies/finalmask/) 👻 for `vless` and `trojan` proxies.
+
+## Take the mask from the host
+
+Remnawave keeps the client mask of a host in its **Final Mask** field (`streamOverrides.finalMask`). The same mask goes to Happ and other Xray clients. Prizrak-Core reads it as it is, in Xray's spelling (nested `settings`, camelCase keys such as `randRange`), so the mapper only copies it:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "copy", "from": "$host.streamOverrides.finalMask", "to": "finalmask" }
+  ],
+  "base64": []
+}
+```
+
+If the host has no Final Mask, the operation is skipped and the node stays without masks.
+
+## Write the mask in the mapper
+
+A fixed mask can be written in the mapper itself, in mihomo's spelling. The TLS ClientHello fragmentation example:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    {
+      "op": "set",
+      "to": "finalmask",
+      "value": {
+        "tcp": [
+          { "type": "fragment", "packets": "tlshello", "lengths": ["1-1"], "delays": ["0"] }
+        ]
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+The same mask in Xray's form, as it appears in the inbound:
+
+```json
+{
+  "tcp": [
+    { "type": "fragment", "settings": { "packets": "tlshello", "lengths": ["1-1"], "delays": ["0"] } }
+  ]
+}
+```
+
+In the Mihomo subscription the proxy gets:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    finalmask:
+      tcp:
+        - type: fragment
+          packets: tlshello
+          lengths: ["1-1"]
+          delays: ["0"]
+```
+
+<Aside type="caution">
+The masks must match the `finalmask` of the inbound on the host's server. Clients on plain mihomo ignore `finalmask` and cannot reach a masked server: give masks only to hosts used by Prizrak-Core clients. A host on a `kcp` inbound needs the whole proxy built by the mapper, see [mKCP and xdns](/remnawave/kcp-xdns/).
+</Aside>

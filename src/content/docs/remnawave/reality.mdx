@@ -1,0 +1,37 @@
+---
+title: "REALITY ML-DSA-65 via the host mapper"
+description: Pass the ML-DSA-65 verification key of a REALITY server to Prizrak-Core clients.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+If `mldsa65Seed` is set in the REALITY inbound of an Xray server, the server signs the REALITY certificate with the post-quantum ML-DSA-65 signature. Prizrak-Core [verifies this signature](/config/proxies/reality/) 👻 when the proxy's `reality-opts` has the public key `mldsa65-verify`.
+
+The key is the `mldsa65Verify` value that `xray mldsa65` prints together with `mldsa65Seed` (base64url).
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "reality-opts.mldsa65-verify", "value": "<mldsa65Verify>" }
+  ],
+  "base64": []
+}
+```
+
+The node gets the key in `reality-opts`:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    reality-opts:
+      public-key: <X25519 public key>
+      short-id: <short id>
+      mldsa65-verify: <mldsa65Verify>
+```
+
+<Aside type="caution">
+The key must match the server's `mldsa65Seed`. With a wrong key, or with ML-DSA-65 off on the server, Prizrak-Core rejects the REALITY certificate and does not connect. Plain mihomo ignores the key and connects without the check.
+</Aside>

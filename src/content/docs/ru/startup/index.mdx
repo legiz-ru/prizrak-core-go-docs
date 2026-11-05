@@ -1,0 +1,65 @@
+---
+title: Установка
+description: Как скачать Prizrak-Core для своей платформы и запустить.
+---
+
+import ReleaseDownloads from '../../../../components/ReleaseDownloads.astro';
+
+Prizrak-Core — один исполняемый файл, прямая замена mihomo. Скачайте файл для своей платформы, распакуйте и запустите, указав папку с `config.yaml`.
+
+## Скачать
+
+Файлы последнего релиза (фильтр сужает список, например `linux-arm64` или `.deb`):
+
+<ReleaseDownloads lang="ru" />
+
+Все версии — на странице [Releases](https://github.com/legiz-ru/Prizrak-Core/releases).
+
+### Какой файл выбрать
+
+| Часть имени | Что значит |
+|---|---|
+| `amd64-v1`, `amd64-v2`, `amd64-v3` | Уровень микроархитектуры x86-64. `v3` (AVX2, процессоры примерно с 2015 года) самый быстрый, `v1` работает на любом x86-64; если не уверены, берите `v1`. Файл `amd64` без уровня собран под `v3`. |
+| `amd64-compatible` | Старое имя `amd64-v1`, его уберут. |
+| `-go120`, `-go122`, `-go123`, `-go124`… | Собрано старой версией Go для старых систем: Windows 7/8 и macOS 10.13–10.14 (`go120`), macOS 10.15 (`go122`), ядра Linux старше 3.2 (`go123`), macOS 11 (`go124`). |
+| `386-softfloat`, `mips-softfloat`, `mipsle-hardfloat`… | Варианты для процессоров без аппаратного FPU (или с ним), обычно для роутеров. |
+| `loong64-abi1`, `loong64-abi2` | Старый и новый ABI LoongArch. |
+| `.gz` / `.zip` | Сам исполняемый файл. `.deb`, `.rpm`, `.pkg.tar.zst` — пакеты для Debian/Ubuntu, Fedora/RHEL и Arch. |
+
+## Запуск
+
+```bash
+gunzip prizrak-core-linux-amd64-v1-*.gz
+chmod +x prizrak-core-linux-amd64-v1-*
+./prizrak-core-linux-amd64-v1-* -d /etc/prizrak-core
+```
+
+`-d` задаёт рабочую папку: ядро читает из неё `config.yaml` и хранит там геоданные, файлы провайдеров и кэш. Другие флаги:
+
+| Флаг | Переменная окружения | Что делает |
+|---|---|---|
+| `-d <папка>` | `CLASH_HOME_DIR` | Рабочая папка. |
+| `-f <файл>` | `CLASH_CONFIG_FILE` | Файл конфига (вместо `<папка>/config.yaml`). |
+| `-config <base64>` | `CLASH_CONFIG_STRING` | Весь конфиг строкой base64. |
+| `-age-secret-key <ключ>` | `CLASH_AGE_SECRET_KEY` | Секретный ключ age для расшифровки конфига. |
+| `-ext-ctl`, `-ext-ctl-tls`, `-ext-ctl-unix`, `-ext-ctl-pipe` | `CLASH_OVERRIDE_EXTERNAL_CONTROLLER…` | Переопределить адреса контроллера. |
+| `-secret <s>` | `CLASH_OVERRIDE_SECRET` | Переопределить `secret` API. |
+| `-ext-ui <папка>` | `CLASH_OVERRIDE_EXTERNAL_UI_DIR` | Переопределить `external-ui`. |
+| `-post-up <cmd>`, `-post-down <cmd>` | `CLASH_POST_UP`, `CLASH_POST_DOWN` | Команды после запуска и перед выходом. |
+| `-m` | | Режим geodata (файлы `.dat` вместо `.mmdb`). |
+| `-t` | | Проверить конфиг и выйти. |
+| `-v` | | Показать версию. |
+
+Чтобы ядро работало в фоне, см. [Запуск как служба](/ru/startup/service/).
+
+## Docker
+
+```bash
+docker run -d --name prizrak-core --network host \
+  -v /etc/prizrak-core:/root/.config/mihomo \
+  ghcr.io/legiz-ru/prizrak-core:latest
+```
+
+## Клиенты
+
+Prizrak-Box и другие клиенты с Prizrak-Core перечислены на странице [Клиенты](/ru/startup/clients/).

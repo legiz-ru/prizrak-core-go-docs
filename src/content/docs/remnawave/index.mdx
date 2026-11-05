@@ -1,0 +1,76 @@
+---
+title: Remnawave host mapper
+description: Deliver Prizrak-Core options to clients through the Remnawave host mapper.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+[Remnawave](https://docs.rw/) builds the Mihomo subscription from the panel's hosts. A plain Mihomo node carries none of the 👻 Prizrak-Core options: mux.cool, finalmask, the REALITY ML-DSA-65 key, the XHTTP flow governor, `udp-443`. The **host mapper** adds them. It is a list of operations that Remnawave runs on the node generated for a host, after the generator has finished.
+
+- Only the subscription formats whose lists you fill change. With only the `mihomo` list filled, Xray JSON, base64 and sing-box subscriptions stay as they were.
+- Clients on plain mihomo ignore keys they do not know and keep working, except where a page says otherwise (finalmask and mKCP: a client without them cannot reach the server).
+- Prizrak-Box sends a `User-Agent` that starts with `prizrak-box/`, and the standalone core sends `Prizrak-Core/…`; both get the Mihomo subscription with the mapper applied. Headers, templates and age encryption for Prizrak-Box are described in the [Prizrak-Box docs](https://docs.prizrak.app/for-devs/remnawave-integration/).
+
+## Set up the mapper
+
+<Steps>
+
+1. Open **Hosts** and select the host to edit.
+2. In the **Options** block, click **Add** and pick **Mapper** in the **Advanced** group.
+3. A **Mapper** row with the status **Not set** appears in the **Advanced** section. Click it to open the mapper JSON editor.
+4. Paste the JSON from one of the examples and click **Save** in the host card. The mapper status changes to **Configured**.
+
+</Steps>
+
+<Aside type="note">
+Make sure **Mihomo** is not checked in **Exclude from subscription type**, otherwise the host does not reach the Mihomo subscription at all.
+</Aside>
+
+## Operations
+
+The mapper JSON has a list per subscription format: `xrayJson`, `mihomo`, `base64` and `singbox`. Prizrak-Core reads the Mihomo subscription, so the examples fill only `mihomo`. Operations run in order, and each one sees what the previous ones wrote.
+
+| Operation | Fields | What it does |
+|---|---|---|
+| `set` | `to`, `value` | Writes `value` (a string, number, boolean, array or object) at `to`, creating the missing objects on the way. |
+| `copy` | `from`, `to` | Reads a value and writes it at `to`. If `from` resolves to nothing, the operation is skipped and `to` is not created. |
+| `unset` | `to` | Removes the key. A parent left empty stays as `{}`. |
+
+**Where `copy` reads from.** A `from` that starts with `$host.` reads the host after its overrides are resolved. Only these parts of the host are readable (with everything nested under them): `address`, `port`, `finalRemark`, `protocol`, `transport`, `security`, `protocolOptions`, `transportOptions`, `securityOptions`, `mux`, `streamOverrides.finalMask`, `streamOverrides.sockopt`, `clientOverrides.serverDescription`, `metadata.remark`, `metadata.tags`, `metadata.inboundTag`. Any other `from` is a path in the **raw inbound** of the host's config profile, e.g. `streamSettings.realitySettings.serverNames.0`.
+
+**How `to` is written.** `to` is a path from the root of the node, in mihomo's kebab-case keys: `xhttp-opts.h2-flow`, `reality-opts.mldsa65-verify`. Dots separate levels, so a key that contains a dot is written in brackets: `['mux.cool']`. Written as `mux.cool`, it would turn into `mux: { cool: … }`, which Prizrak-Core does not read. A path that runs through a value that is not an object (a string, a number) is refused, so an existing value is never overwritten by accident.
+
+<Aside type="caution">
+Remnawave does not check `to` against mihomo: a misspelled key is written like a real one and the core then ignores it. Check the node in the subscription after saving: request it with `User-Agent: prizrak-box/1.0` and look at the host's proxy.
+</Aside>
+
+## Examples
+
+Each example is a complete mapper JSON. Several features on one host go into one `mihomo` list.
+
+| Page | What the mapper adds |
+|---|---|
+| [mux.cool](/remnawave/mux-cool/) | Xray-compatible multiplexing (`mux.cool` block). |
+| [REALITY ML-DSA-65](/remnawave/reality/) | `reality-opts.mldsa65-verify` for servers with `mldsa65Seed`. |
+| [finalmask](/remnawave/finalmask/) | Traffic masks that match the server inbound's `finalmask`. |
+| [mKCP and xdns](/remnawave/kcp-xdns/) | The whole VLESS over mKCP proxy of a `kcp` host, e.g. a DNS tunnel. |
+| [XHTTP h2-flow](/remnawave/xhttp-h2-flow/) | The HTTP/2 flow governor for XHTTP hosts. |
+| [udp-443](/remnawave/udp-443/) | Reject QUIC (UDP/443) through this node so browsers fall back to TCP. |
+
+A host with several options at once:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "udp-443", "value": "reject" },
+    { "op": "set", "to": "reality-opts.mldsa65-verify", "value": "<mldsa65Verify>" },
+    {
+      "op": "set",
+      "to": "['mux.cool']",
+      "value": { "enabled": true, "max-concurrency": 8, "xudp-concurrency": 16 }
+    }
+  ],
+  "base64": []
+}
+```

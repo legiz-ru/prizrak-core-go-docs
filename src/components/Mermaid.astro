@@ -1,0 +1,39 @@
+---
+// A Mermaid diagram, rendered in the browser. The theme follows the site's
+// light/dark switch.
+interface Props {
+	code: string;
+}
+const { code } = Astro.props;
+---
+
+<div class="px-mermaid not-content"><pre class="mermaid" data-src={code}>{code}</pre></div>
+
+<script>
+	import mermaid from 'mermaid';
+
+	const render = async () => {
+		const dark = document.documentElement.dataset.theme === 'dark';
+		mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default', securityLevel: 'strict' });
+		const nodes = document.querySelectorAll<HTMLElement>('pre.mermaid');
+		nodes.forEach((n) => {
+			n.removeAttribute('data-processed');
+			n.textContent = n.dataset.src ?? n.textContent;
+		});
+		await mermaid.run({ nodes: Array.from(nodes) });
+	};
+	render();
+	new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>
+
+<style>
+	.px-mermaid {
+		margin-block: 1.5rem;
+		overflow-x: auto;
+	}
+	.px-mermaid pre {
+		background: transparent;
+		border: 0;
+		text-align: center;
+	}
+</style>

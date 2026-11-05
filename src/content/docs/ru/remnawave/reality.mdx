@@ -1,0 +1,37 @@
+---
+title: "REALITY ML-DSA-65 через маппер хоста"
+description: Передать клиентам Prizrak-Core ключ проверки ML-DSA-65 сервера REALITY.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Если в REALITY-инбаунде сервера Xray задан `mldsa65Seed`, сервер подписывает сертификат REALITY постквантовой подписью ML-DSA-65. Prizrak-Core [проверяет эту подпись](/ru/config/proxies/reality/) 👻, если в `reality-opts` прокси указан публичный ключ `mldsa65-verify`.
+
+Ключ — это значение `mldsa65Verify`, которое `xray mldsa65` выводит вместе с `mldsa65Seed` (base64url).
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "reality-opts.mldsa65-verify", "value": "<mldsa65Verify>" }
+  ],
+  "base64": []
+}
+```
+
+Узел получит ключ в `reality-opts`:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    reality-opts:
+      public-key: <X25519 public key>
+      short-id: <short id>
+      mldsa65-verify: <mldsa65Verify>
+```
+
+<Aside type="caution">
+Ключ должен соответствовать `mldsa65Seed` сервера. С неверным ключом или без ML-DSA-65 на сервере Prizrak-Core не примет сертификат REALITY и не подключится. Обычный mihomo ключ проигнорирует и подключится без проверки.
+</Aside>

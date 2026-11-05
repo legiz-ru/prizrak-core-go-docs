@@ -1,0 +1,41 @@
+---
+title: Конфигурация
+description: Разделы конфигурационного файла Prizrak-Core и чем Prizrak-Core отличается от mihomo.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+Конфиг Prizrak-Core — YAML-файл (`config.yaml` в рабочей папке). Формат тот же, что у mihomo: Prizrak-Core читает любой конфиг mihomo без изменений.
+
+**👻 отмечает то, что есть только в Prizrak-Core.** 👻 рядом со страницей, разделом или параметром значит, что в mihomo этого нет: конфигу с таким параметром нужен Prizrak-Core (или Prizrak-Box), а обычный mihomo ключ проигнорирует или откажется загружать конфиг.
+
+## Основные отличия от mihomo
+
+| Возможность | mihomo | Prizrak-Core |
+|---|---|---|
+| [Группа `smart`](/ru/config/proxy-groups/smart/): выбор узла с ML | — | ✅ |
+| [`ping-config`](/ru/config/proxy-groups/ping-config/): url-test / fallback / load-balance / smart считают узел живым, только если он реально скачивает данные | — | ✅ |
+| [uTLS: prizrak-utls](/ru/config/proxies/prizrak-utls/): отпечатки Chrome 155 / Firefox 148 / Safari 26.3 | `metacubex/utls` v1.8.8 | ✅ |
+| [mux.cool](/ru/config/proxies/mux-cool/): Xray Mux и XUDP | — | ✅ клиент и сервер |
+| [REALITY](/ru/config/proxies/reality/) с ML-DSA-65, совместимый с актуальным Xray | — | ✅ |
+| [finalmask](/ru/config/proxies/finalmask/): маски трафика из Xray-core (fragment, header-custom, sudoku, xmc, noise, udphop, xdns, xicmp) для vless и trojan | — | ✅ клиент и сервер |
+| [mKCP для VLESS](/ru/config/proxies/finalmask/#vless-поверх-mkcp), как в Xray-core после finalmask (в том числе DNS-туннели через xdns) | только VMess | ✅ клиент |
+| [XHTTP и HTTP/2](/ru/config/proxies/xhttp/): регулятор `h2-flow`, одно соединение HTTP/2 за раз, буфер отправки 32 КиБ | — | ✅ клиент и сервер |
+| [`freedom`](/ru/config/proxies/freedom/): DIRECT с фрагментацией TLS и параметрами сокета (`freedom` из Xray-core) | — | ✅ |
+| [`udp-443`](/ru/config/proxies/udp-443/): отправлять QUIC (UDP/443) через узел или весь провайдер в REJECT | — | ✅ |
+| [`fallback-urls`](/ru/config/proxy-providers/fallback-urls/): резервные адреса http-провайдеров прокси и правил | — | ✅ |
+
+Как передать эти параметры клиентам панели Remnawave, см. [Интеграция с Remnawave](/ru/remnawave/).
+
+## Разделы
+
+<CardGrid>
+  <LinkCard title="Полный пример" description="docs/config.yaml в репозитории Prizrak-Core: все параметры с комментариями." href="https://github.com/legiz-ru/Prizrak-Core/blob/v1-19-33-fm/docs/config.yaml" />
+  <LinkCard title="Общие настройки" description="Порты, режим, логи, контроллер, профиль, геоданные." href="/ru/config/general/" />
+  <LinkCard title="DNS" description="Серверы имён, fake-ip, политики, hosts." href="/ru/config/dns/" />
+  <LinkCard title="Входящие" description="Порты, TUN и listeners." href="/ru/config/inbound/" />
+  <LinkCard title="Прокси" description="Исходящие протоколы, TLS и транспорты." href="/ru/config/proxies/" />
+  <LinkCard title="Группы прокси" description="select, url-test, fallback, load-balance и 👻 smart." href="/ru/config/proxy-groups/" />
+  <LinkCard title="Правила маршрутизации" description="Типы правил и логика." href="/ru/config/rules/" />
+  <LinkCard title="Провайдеры" description="Провайдеры прокси и правил." href="/ru/config/proxy-providers/" />
+</CardGrid>

@@ -1,0 +1,50 @@
+---
+title: "XHTTP h2-flow via the host mapper"
+description: Turn on the HTTP/2 flow governor of Prizrak-Core for XHTTP hosts.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+For hosts with the XHTTP transport Prizrak-Core can turn on the [HTTP/2 flow governor](/config/proxies/xhttp/) 👻. With it the server sends data no faster than the client reads it and does not fill large HTTP/2 windows. This lowers memory use on the client and helps weak devices. The Xray server needs no setup: the governor works on the client side through standard HTTP/2 flow control. If the server runs [Jolymmiles/Xray-core](https://github.com/Jolymmiles/Xray-core) with its own governor (`h2Flow`), the two work together, and the governor can be turned on from either side or both.
+
+The governor is off by default and only acts in h2 mode: ALPN `h2` or an empty ALPN. With ALPN `h3` or `http/1.1` the option has no effect.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    {
+      "op": "set",
+      "to": "xhttp-opts.h2-flow",
+      "value": {
+        "enabled": true,
+        "max-stream-receive-window": 16777216,
+        "max-connection-receive-window": 33554432
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+The node gets the block in `xhttp-opts`:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    network: xhttp
+    # ...
+    xhttp-opts:
+      # ...
+      h2-flow:
+        enabled: true
+        max-stream-receive-window: 16777216
+        max-connection-receive-window: 33554432
+```
+
+`max-stream-receive-window` and `max-connection-receive-window` are optional HTTP/2 receive windows in bytes, per stream and per connection, from 65535 to 1 GiB. With the governor on they cap the window. Without them Go's default windows apply (4 MiB per stream), and `"enabled": true` is enough in `value`.
+
+<Aside type="note">
+Add the rule only to hosts with the XHTTP transport; other transports do not use `xhttp-opts`. The older key `h2-flow-control: true` still works, but the `h2-flow` block is the main form.
+</Aside>

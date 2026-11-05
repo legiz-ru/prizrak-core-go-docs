@@ -1,0 +1,122 @@
+---
+// Nested part of the sidebar: links of a group and, recursively, its
+// sub-groups (Configuration → Inbound → Listeners → …). Sub-groups fold with
+// <details> and open themselves when they hold the current page.
+import TablerIcon from './TablerIcon.astro';
+
+type Entry = (typeof Astro.locals.starlightRoute.sidebar)[number];
+
+interface Props {
+	entries: Entry[];
+}
+
+const { entries } = Astro.props;
+
+function linkAttrs(entry: Entry) {
+	if (entry.type !== 'link') return {};
+	const { class: _class, ...rest } = entry.attrs;
+	return rest;
+}
+
+const hasCurrent = (list: Entry[]): boolean =>
+	list.some((e) => (e.type === 'link' ? e.isCurrent : hasCurrent(e.entries)));
+---
+
+<ul class="px-sub">
+	{
+		entries.map((sub) =>
+			sub.type === 'link' ? (
+				<li>
+					<a
+						href={sub.href}
+						aria-current={sub.isCurrent ? 'page' : undefined}
+						class:list={['px-sub__item', sub.attrs.class]}
+						{...linkAttrs(sub)}
+					>
+						{sub.label}
+					</a>
+				</li>
+			) : (
+				<li>
+					<details open={hasCurrent(sub.entries) || !sub.collapsed}>
+						<summary class="px-sub__item px-sub__group">
+							<span class="px-sub__label">{sub.label}</span>
+							<TablerIcon name="chevron-right" size={14} class="px-sub__caret" />
+						</summary>
+						<Astro.self entries={sub.entries} />
+					</details>
+				</li>
+			)
+		)
+	}
+</ul>
+
+<style>
+	.px-sub {
+		list-style: none;
+		margin: 6px 0 2px 22px;
+		padding: 0;
+		padding-inline-start: 10px;
+		border-inline-start: 1px solid var(--border);
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.px-sub .px-sub {
+		margin: 2px 0 4px 10px;
+	}
+
+	.px-sub__item {
+		display: block;
+		padding: 7px 12px;
+		border-radius: 999px;
+		font-size: 13px;
+		font-weight: 600;
+		line-height: 1.3;
+		color: var(--text-2);
+		text-decoration: none;
+		transition: background 0.15s, color 0.15s;
+		overflow-wrap: break-word;
+	}
+
+	.px-sub__item:hover {
+		background: var(--hover-bg);
+		color: var(--text);
+	}
+
+	.px-sub__item[aria-current='page'],
+	.px-sub__item[aria-current='page']:hover {
+		background: var(--accent);
+		color: var(--on-accent);
+	}
+
+	.px-sub__group {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		cursor: pointer;
+		list-style: none;
+		user-select: none;
+		color: var(--text);
+	}
+
+	.px-sub__group::-webkit-details-marker,
+	.px-sub__group::marker {
+		display: none;
+	}
+
+	.px-sub__label {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.px-sub__caret {
+		color: var(--text-2);
+		transition: transform 0.2s;
+	}
+
+	details[open] > summary .px-sub__caret {
+		transform: rotate(90deg);
+	}
+</style>

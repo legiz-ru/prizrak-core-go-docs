@@ -1,0 +1,106 @@
+---
+title: "mKCP and xdns: a kcp host"
+description: Build a VLESS over mKCP proxy (for example an xdns DNS tunnel) for a Remnawave kcp host.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prizrak-Core carries [VLESS over mKCP](/config/proxies/finalmask/#vless-over-mkcp) 👻 the way an Xray-core `kcp` inbound expects it since finalmask, with UDP masks such as `xdns` under mKCP. A typical use is a DNS tunnel: mKCP packets travel as DNS queries for the server's zone through public resolvers and get through where everything except DNS is blocked.
+
+## The mapper
+
+The mapper builds the whole proxy from the host's own settings: the network, `mkcp-opts` and the client mask from the host's **Final Mask** field.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "network", "value": "mkcp" },
+    { "op": "copy", "from": "$host.transportOptions.clientMtu", "to": "mkcp-opts.mtu" },
+    { "op": "copy", "from": "$host.transportOptions.clientTti", "to": "mkcp-opts.tti" },
+    { "op": "copy", "from": "$host.transportOptions.congestion", "to": "mkcp-opts.congestion" },
+    { "op": "copy", "from": "$host.streamOverrides.finalMask", "to": "finalmask" },
+    { "op": "unset", "to": "client-fingerprint" }
+  ],
+  "base64": []
+}
+```
+
+- The four `copy` operations are required. Without the mask the client talks to the server directly and the tunnel does not work.
+- `set network` and `unset client-fingerprint` are for tidiness: Prizrak-Core also accepts `network: kcp` and ignores `client-fingerprint` on a proxy without TLS.
+- **Final Mask** of the host holds the client mask in Xray's form; Prizrak-Core reads it as it is. An example with the compact spelling of the first xdns:
+
+```json
+{"udp":[{"type":"xdns","settings":{"resolvers":["t.example.com:aaaa+udp://77.88.8.8:53","t.example.com:aaaa+udp://8.8.8.8:53"]}}]}
+```
+
+The server's `kcp` inbound must have the server side of the same `finalmask` (xdns with your zone).
+
+## What the client gets
+
+With the compact spelling of the first xdns (Xray servers v26.1.31–v26.9.9):
+
+```yaml
+proxies:
+  - name: 🇷🇺 DNS tunnel
+    type: vless
+    server: 77.88.8.8
+    port: 53
+    uuid: <uuid>
+    udp: true
+    packet-encoding: xudp
+    network: mkcp
+    mkcp-opts:
+      mtu: 77
+      tti: 100
+      congestion: false
+    finalmask:
+      udp:
+        - type: xdns
+          settings:
+            resolvers:
+              - "t.example.com:aaaa+udp://77.88.8.8:53"
+              - "t.example.com:aaaa+udp://8.8.8.8:53"
+```
+
+With the full spelling (servers newer than v26.9.9), here with VLESS Encryption on the same host; the generator adds `encryption` by itself:
+
+```yaml
+proxies:
+  - name: 🇦🇶 Backup (text only)
+    type: vless
+    server: <server IP>
+    port: 53
+    uuid: <uuid>
+    encryption: mlkem768x25519plus.native.0rtt.<key>
+    udp: true
+    packet-encoding: xudp
+    network: mkcp
+    mkcp-opts:
+      mtu: 77
+      tti: 100
+      congestion: false
+    finalmask:
+      udp:
+        - type: xdns
+          settings:
+            domains:
+              - names: ["<xdns zone>"]
+                types: [28]      # AAAA
+                edns0: 1232
+            resolvers:
+              - addrs:
+                  - udp://77.88.8.8:53
+                  - udp://77.88.8.1:53
+                  # ... further resolvers
+```
+
+Both forms were checked with Prizrak-Core v1.19.33-r10: in the Xray JSON form, as a `vless://…?type=kcp&mtu=77&tti=100&fm=…` link and as the YAML the mapper builds. Pages load in about a second; the speed is tens of KB/s, enough for messengers in text mode. While data flows, the core holds UDP sockets to the resolvers only, nothing goes to the server directly.
+
+<Aside type="caution">
+Remnawave (3.4.7 and the `dev` branch at the time of writing) drops `kcp` hosts from the Mihomo subscription **before** the mapper runs, so such a host does not reach Prizrak-Box at all. It gets in only with the backend change [remnawave/backend#233](https://github.com/remnawave/backend/pull/233) (still open), which builds `kcp` hosts that have a Mihomo mapper. Until then Prizrak-Core receives such a node only from links (User-Agent `Prizrak-Core/…`) or from an Xray JSON subscription, which it converts by itself.
+</Aside>
+
+<Aside type="note">
+Plain mihomo has mKCP for VMess only: a client on it gets a proxy that does not connect. The Rust core prizrak-core-rs does not support VLESS over mKCP yet either.
+</Aside>

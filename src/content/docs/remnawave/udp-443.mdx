@@ -1,0 +1,32 @@
+---
+title: "udp-443 via the host mapper"
+description: Reject QUIC (UDP port 443) through a Remnawave host so that browsers fall back to TCP.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+[`udp-443`](/config/proxies/udp-443/) 👻 sends UDP traffic to port 443 (QUIC, HTTP/3) that would go through this proxy into REJECT. Browsers then retry over TCP (HTTP/2), which usually works better through a proxy than QUIC tunnelled over TCP or over a lossy UDP path. Other UDP (DNS, games, calls) still goes through the proxy.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "udp-443", "value": "reject" }
+  ],
+  "base64": []
+}
+```
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    udp-443: reject
+```
+
+`quic: reject` is an alias and works the same way; use one of them.
+
+<Aside type="note">
+Xray clients get the same effect from the VLESS flow `xtls-rprx-vision` (Xray blocks UDP/443 for Vision unless the flow ends in `-udp443`). mihomo does not do that, so for Prizrak-Core the option is set explicitly. Plain mihomo ignores `udp-443` and lets QUIC through.
+</Aside>

@@ -1,0 +1,51 @@
+---
+title: "mux.cool через маппер хоста"
+description: Включить мультиплексирование mux.cool, совместимое с Xray, для хоста Remnawave.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prizrak-Core поддерживает [мультиплексирование mux.cool](/ru/config/proxies/mux-cool/) 👻, совместимое с Xray. Серверам Xray, которыми управляет Remnawave, настройка не нужна: они принимают mux.cool сами.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    {
+      "op": "set",
+      "to": "['mux.cool']",
+      "value": {
+        "enabled": true,
+        "max-carriers": 4,
+        "max-concurrency": 8,
+        "max-connections": 3,
+        "xudp-concurrency": 16,
+        "xudp-proxy-udp443": "reject"
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+В ключе есть точка, поэтому `to` записан в скобках: `['mux.cool']`. В подписке Mihomo прокси получит такой блок:
+
+```yaml
+proxies:
+  - name: 🇩🇪 Germany
+    type: vless
+    # ...
+    mux.cool:
+      enabled: true
+      max-carriers: 4
+      max-concurrency: 8
+      max-connections: 3
+      xudp-concurrency: 16
+      xudp-proxy-udp443: reject
+```
+
+Параметры описаны на [странице mux.cool](/ru/config/proxies/mux-cool/). У `xudp-proxy-udp443` по умолчанию `reject`: с включённым mux.cool QUIC (UDP/443) через этот узел не пойдёт, пока не указать `allow` или `skip`.
+
+<Aside type="caution">
+Не включайте `mux.cool` и `smux` на одном прокси. Если Remnawave уже добавил хосту блок smux, уберите его в том же маппере: `{ "op": "unset", "to": "smux" }`. Клиенты на обычном mihomo `mux.cool` проигнорируют и подключатся без мультиплексирования.
+</Aside>
