@@ -21,6 +21,7 @@ A Prizrak-Core config is a YAML file (`config.yaml` in the working directory). I
 | [finalmask](/config/proxies/finalmask/): Xray-core traffic masks (fragment, header-custom, sudoku, xmc, noise, udphop, xdns, xicmp) for vless and trojan | — | ✅ client and server |
 | [mKCP for VLESS](/config/proxies/finalmask/#vless-over-mkcp), as in Xray-core since finalmask (xdns DNS tunnels included) | VMess only | ✅ client |
 | [XHTTP and HTTP/2](/config/proxies/xhttp/): the `h2-flow` governor, one HTTP/2 connection at a time, 32 KiB send buffer | — | ✅ client and server |
+| [XDRIVE](/config/proxies/xdrive/): VLESS through Google Drive, S3, any HTTP storage or a shared folder (Xray-core v26.11.9) | — | ✅ client and server |
 | [`freedom`](/config/proxies/freedom/): DIRECT with TLS fragmentation and socket options (Xray-core `freedom`) | — | ✅ |
 | [`udp-443`](/config/proxies/udp-443/): send QUIC (UDP/443) through a node or a whole provider into REJECT | — | ✅ |
 | [`fallback-urls`](/config/proxy-providers/fallback-urls/): backup addresses for http proxy and rule providers | — | ✅ |

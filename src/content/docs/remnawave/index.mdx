@@ -8,7 +8,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 [Remnawave](https://docs.rw/) builds the Mihomo subscription from the panel's hosts. A plain Mihomo node carries none of the 👻 Prizrak-Core options: mux.cool, finalmask, the REALITY ML-DSA-65 key, the XHTTP flow governor, `udp-443`. The **host mapper** adds them. It is a list of operations that Remnawave runs on the node generated for a host, after the generator has finished.
 
 - Only the subscription formats whose lists you fill change. With only the `mihomo` list filled, Xray JSON, base64 and sing-box subscriptions stay as they were.
-- Clients on plain mihomo ignore keys they do not know and keep working, except where a page says otherwise (finalmask and mKCP: a client without them cannot reach the server).
+- Clients on plain mihomo ignore keys they do not know and keep working, except where a page says otherwise (finalmask, mKCP and XDRIVE: a client without them cannot reach the server).
 - Prizrak-Box sends a `User-Agent` that starts with `prizrak-box/`, and the standalone core sends `Prizrak-Core/…`; both get the Mihomo subscription with the mapper applied. Headers, templates and age encryption for Prizrak-Box are described in the [Prizrak-Box docs](https://docs.prizrak.app/for-devs/remnawave-integration/).
 
 ## Set up the mapper
@@ -55,6 +55,7 @@ Each example is a complete mapper JSON. Several features on one host go into one
 | [finalmask](/remnawave/finalmask/) | Traffic masks that match the server inbound's `finalmask`. |
 | [mKCP and xdns](/remnawave/kcp-xdns/) | The whole VLESS over mKCP proxy of a `kcp` host, e.g. a DNS tunnel. |
 | [XHTTP h2-flow](/remnawave/xhttp-h2-flow/) | The HTTP/2 flow governor for XHTTP hosts. |
+| [XDRIVE](/remnawave/xdrive/) | Turns the node of a host into a VLESS over XDRIVE proxy. |
 | [udp-443](/remnawave/udp-443/) | Reject QUIC (UDP/443) through this node so browsers fall back to TCP. |
 
 A host with several options at once:

@@ -44,6 +44,11 @@ listeners:
   #   mux-keep-alive-bytes: "100-500"
   #   h2-flow: { enabled: true }
   #   h2-params: { max-concurrent-streams: 256 }
+  # 👻 Только Prizrak-Core. Если поле не пустое, включается XDRIVE: сокет не открывается, листенер опрашивает хранилище. Нужен decryption.
+  # xdrive-config:
+  #   service: google-drive # google-drive | template | s3 | local, те же поля, что в xdrive-opts у прокси
+  #   remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+  #   secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
   # -------------------------
   # Конфигурация vless encryption на стороне сервера:
   # (нативный вид / только XOR публичного ключа / полностью случайный. 1-RTT каждый раз выдает случайный ticket на 300-600 секунд для повторного использования 0-RTT / разрешен только 1-RTT)
@@ -134,3 +139,4 @@ listeners:
 - `reality-config` принимает серверные параметры в стиле Xray: `target` (алиас `dest`), `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show` и `master-key-log`. У `min-client-ver` по умолчанию `26.3.27`, ниже нельзя. См. [REALITY](/ru/config/proxies/reality/).
 - `finalmask` с масками `tcp` — серверная часть finalmask из Xray-core. См. [finalmask](/ru/config/proxies/finalmask/).
 - mux.cool от клиентов Xray принимается без параметров. См. [mux.cool](/ru/config/proxies/mux-cool/).
+- `xdrive-config` включает VLESS поверх XDRIVE: те же поля, что в `xdrive-opts` у прокси, плюс TLS-поля запросов к хранилищу. Нужен `decryption`, сокет не открывается, остальные транспортные и TLS-параметры листенера не используются. См. [XDRIVE](/ru/config/proxies/xdrive/#сервер-листенер-vless).

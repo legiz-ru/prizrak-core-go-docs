@@ -8,7 +8,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 [Remnawave](https://docs.rw/) собирает подписку Mihomo из хостов панели. В обычном узле Mihomo нет ни одного 👻 параметра Prizrak-Core: mux.cool, finalmask, ключа REALITY ML-DSA-65, регулятора потока XHTTP, `udp-443`. Их добавляет **маппер хоста** — список операций, которые Remnawave выполняет над узлом хоста после того, как генератор его собрал.
 
 - Меняются только те форматы подписки, чьи списки заполнены. Если заполнен только `mihomo`, подписки Xray JSON, base64 и sing-box остаются как были.
-- Клиенты на обычном mihomo незнакомые ключи игнорируют и работают как раньше, кроме случаев, оговорённых на страницах (finalmask и mKCP: без них клиент до сервера не достучится).
+- Клиенты на обычном mihomo незнакомые ключи игнорируют и работают как раньше, кроме случаев, оговорённых на страницах (finalmask, mKCP и XDRIVE: без них клиент до сервера не достучится).
 - Prizrak-Box присылает `User-Agent`, начинающийся с `prizrak-box/`, отдельное ядро — `Prizrak-Core/…`. Оба получают подписку Mihomo с применённым маппером. Заголовки, шаблоны и шифрование age для Prizrak-Box описаны в [документации Prizrak-Box](https://docs.prizrak.app/ru/for-devs/remnawave-integration/).
 
 ## Как настроить маппер
@@ -55,6 +55,7 @@ Remnawave не сверяет `to` с mihomo: ключ с опечаткой з�
 | [finalmask](/ru/remnawave/finalmask/) | Маски трафика под `finalmask` инбаунда сервера. |
 | [mKCP и xdns](/ru/remnawave/kcp-xdns/) | Весь прокси VLESS поверх mKCP для `kcp`-хоста, например DNS-туннеля. |
 | [XHTTP h2-flow](/ru/remnawave/xhttp-h2-flow/) | Регулятор потока HTTP/2 для XHTTP-хостов. |
+| [XDRIVE](/ru/remnawave/xdrive/) | Превращает узел хоста в прокси VLESS поверх XDRIVE. |
 | [udp-443](/ru/remnawave/udp-443/) | Блокировать QUIC (UDP/443) через этот узел, чтобы браузеры перешли на TCP. |
 
 Хост с несколькими параметрами сразу:

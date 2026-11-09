@@ -1,0 +1,88 @@
+---
+title: "XDRIVE через маппер"
+description: Как через маппер хоста выдать клиентам Prizrak-Core панели Remnawave прокси VLESS поверх XDRIVE.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prizrak-Core поддерживает [VLESS поверх XDRIVE](/ru/config/proxies/xdrive/) 👻: сессия идёт объектами через Google Drive или другое хранилище, а клиент и сервер друг к другу не подключаются.
+
+Remnawave этого транспорта не знает. Профиль конфигурации с инбаундом на `network: xdrive` не проходит проверку панели: ветка `dev` на момент написания (3.4.9) разрешает `grpc`, `httpupgrade`, `hysteria`, `kcp`, `raw`, `tcp`, `ws` и `xhttp`. Поэтому панель не может ни запустить такой инбаунд на ноде, ни управлять его пользователями. Но [маппер хоста](/ru/remnawave/) работает с уже собранным узлом и может переписать узел обычного хоста в прокси XDRIVE.
+
+## Что понадобится
+
+- **Отдельный сервер** вне панели, со своим списком пользователей: Xray-core v26.11.9 или новее либо [листенер Prizrak-Core](/ru/config/proxies/xdrive/#сервер-листенер-vless). Он подключается только к хранилищу, так что может стоять где угодно.
+- **Хост на панели**, к которому привязан маппер: любой хост VLESS, кроме `kcp`, потому что `kcp`-хосты Remnawave выкидывает из подписки Mihomo ещё до маппера. `smux` на нём должен быть выключен. Его адрес, порт и инбаунд на итоговый прокси не влияют.
+- В **Exclude from subscription type** отметьте все форматы, кроме Mihomo. Маппер ниже меняет только список `mihomo`, а остальные форматы получили бы обычный узел этого хоста.
+
+## Маппер
+
+Весь прокси записывается через `set`. Подставьте свои значения:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "network", "value": "xdrive" },
+    { "op": "set", "to": "uuid", "value": "<uuid пользователя на сервере XDRIVE>" },
+    { "op": "set", "to": "encryption", "value": "<encryption>" },
+    { "op": "unset", "to": "flow" },
+    { "op": "unset", "to": "reality-opts" },
+    { "op": "set", "to": "servername", "value": "www.google.com" },
+    { "op": "set", "to": "alpn", "value": ["h2"] },
+    { "op": "set", "to": "['mux.cool']", "value": { "enabled": true } },
+    {
+      "op": "set",
+      "to": "xdrive-opts",
+      "value": {
+        "service": "google-drive",
+        "remote-folder": "<GOOGLE_DRIVE_FOLDER_ID>",
+        "secrets": ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"],
+        "eager-window-ms": 10000
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+- `uuid` — id пользователя сервера XDRIVE. Генератор пишет сюда id пользователя подписки, а его этот сервер не знает.
+- `encryption` — клиентская строка из пары, вторая половина которой стоит в `decryption` на сервере. Генератор подставляет её только из настроек самого хоста.
+- `unset flow` и `unset reality-opts`: XDRIVE запрещает и то и другое. На хосте без них эти операции ничего не меняют.
+- `servername` и `alpn` относятся к запросам к хранилищу. У хоста с TLS там свой SNI, поэтому их надо заменить.
+- В `xdrive-opts` подходят все поля из [таблицы](/ru/config/proxies/xdrive/#xdrive-opts), ключи те же, что в YAML.
+
+## Что получит клиент
+
+```yaml
+proxies:
+  - name: 🇷🇺 Drive
+    type: vless
+    server: <адрес хоста>
+    port: 443
+    uuid: <uuid пользователя на сервере XDRIVE>
+    encryption: "<encryption>"
+    udp: true
+    packet-encoding: xudp
+    network: xdrive
+    servername: www.google.com
+    alpn: [h2]
+    client-fingerprint: chrome
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: google-drive
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+      eager-window-ms: 10000
+```
+
+`server` и `port` остаются от хоста, транспорт их не использует.
+
+<Aside type="caution">
+`secrets` получит каждый, у кого есть эта подписка. На Google Drive они дают полный доступ к диску этого аккаунта, поэтому заведите отдельный аккаунт и выдавайте такой хост только тем, кому доверяете. UUID сервера XDRIVE у всех пользователей один, и панель этот трафик не видит и лимитов на него не накладывает.
+</Aside>
+
+<Aside type="note">
+Клиенты на обычном mihomo XDRIVE не знают: они получат прокси, который не подключится. Выдавайте такой хост только Prizrak-Core и Prizrak-Box.
+</Aside>

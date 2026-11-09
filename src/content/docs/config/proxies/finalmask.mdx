@@ -31,8 +31,8 @@ Not ported: `mkcp-legacy`, `salamander` (including `gecko`) and `realm`. A confi
 ## Where it works
 
 - On **`vless`** and **`trojan`** proxies and on the listeners of the same types only.
-- **TCP masks** wrap the connection under TLS, REALITY, ShadowTLS, Restls and JLS and work with every transport: `tcp`, `ws`, `grpc`, `h2`, `http`, `xhttp` (including `download-settings`).
-- **UDP masks** wrap the socket of **VLESS over mKCP** (`network: mkcp`, see [below](#vless-over-mkcp)) and the QUIC socket of **xhttp over HTTP/3** (`network: xhttp`, `alpn: [h3]`). Other transports do not use them, and such a configuration is rejected with an error.
+- **TCP masks** wrap the connection under TLS, REALITY, ShadowTLS, Restls and JLS and work with every transport: `tcp`, `ws`, `grpc`, `h2`, `http`, `xhttp` (including `download-settings`). On [XDRIVE](/config/proxies/xdrive/) they wrap the connections to the storage.
+- **UDP masks** wrap the socket of **VLESS over mKCP** (`network: mkcp`, see [below](#vless-over-mkcp)) and the QUIC socket of **xhttp** and **XDRIVE over HTTP/3** (`network: xhttp` or `network: xdrive`, `alpn: [h3]`). Other transports do not use them, and such a configuration is rejected with an error.
 - Listeners take TCP masks only: they have no HTTP/3 or mKCP socket.
 - Without a `finalmask` block the proxy works as before, with no wrapper at all.
 
@@ -213,7 +213,7 @@ The stream looks like a Minecraft 26.1.2 client logging in: handshake, Login Sta
 
 ## UDP masks
 
-They work for [VLESS over mKCP](#vless-over-mkcp) (`network: mkcp`) and for `xhttp` over HTTP/3 (`alpn: [h3]`).
+They work for [VLESS over mKCP](#vless-over-mkcp) (`network: mkcp`) and for `xhttp` and [XDRIVE](/config/proxies/xdrive/) over HTTP/3 (`alpn: [h3]`). To Google Drive over h3 only `noise` works.
 
 ### `noise`
 

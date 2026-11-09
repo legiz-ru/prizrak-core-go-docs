@@ -21,6 +21,7 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 | [finalmask](/ru/config/proxies/finalmask/): маски трафика из Xray-core (fragment, header-custom, sudoku, xmc, noise, udphop, xdns, xicmp) для vless и trojan | — | ✅ клиент и сервер |
 | [mKCP для VLESS](/ru/config/proxies/finalmask/#vless-поверх-mkcp), как в Xray-core после finalmask (в том числе DNS-туннели через xdns) | только VMess | ✅ клиент |
 | [XHTTP и HTTP/2](/ru/config/proxies/xhttp/): регулятор `h2-flow`, одно соединение HTTP/2 за раз, буфер отправки 32 КиБ | — | ✅ клиент и сервер |
+| [XDRIVE](/ru/config/proxies/xdrive/): VLESS через Google Drive, S3, любое HTTP-хранилище или общую папку (Xray-core v26.11.9) | — | ✅ клиент и сервер |
 | [`freedom`](/ru/config/proxies/freedom/): DIRECT с фрагментацией TLS и параметрами сокета (`freedom` из Xray-core) | — | ✅ |
 | [`udp-443`](/ru/config/proxies/udp-443/): отправлять QUIC (UDP/443) через узел или весь провайдер в REJECT | — | ✅ |
 | [`fallback-urls`](/ru/config/proxy-providers/fallback-urls/): резервные адреса http-провайдеров прокси и правил | — | ✅ |

@@ -1,0 +1,388 @@
+---
+title: "👻 XDRIVE: VLESS через файловое хранилище"
+description: "Транспорт XDRIVE из Xray-core в Prizrak-Core: сессия VLESS идёт объектами через Google Drive, S3, любое HTTP-хранилище или общую папку. Клиент, листенер и все параметры."
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Ведётся тестирование">
+Эта функция новая, и мы продолжаем её проверять. Если что-то работает не так, напишите в Telegram-чат [Prizrak Talk](https://t.me/+OqHkX0bo178xNDcy).
+</Aside>
+
+**XDRIVE** — транспорт из [Xray-core](https://github.com/XTLS/Xray-core) (v26.11.9). Сессия VLESS идёт объектами через хранилище: клиент и сервер друг к другу не подключаются, каждый пишет небольшие объекты в общую папку и опрашивает её в поисках объектов другой стороны. В сети виден только HTTPS до хранилища, например запросы к API Google Drive. Формат на хранилище тот же, что у Xray, поэтому клиент Prizrak-Core работает с сервером Xray, а клиент Xray — с листенером Prizrak-Core.
+
+Режимов четыре, выбираются полем `service`:
+
+| `service` | Хранилище | Что ещё обязательно |
+|-----------|-----------|---------------------|
+| `google-drive` | API Google Drive | `remote-folder` (id папки), `secrets`: ровно 3, client id, client secret, refresh token |
+| `template` | Любое HTTP-хранилище, описанное шаблоном | `template` |
+| `s3` | S3 (SigV4, path-style или virtual-hosted) | блок `s3` (`endpoint`, `bucket`), `remote-folder` (префикс ключей), `secrets`: 2 или 3, access key, secret key, session token (необязателен) |
+| `local` | Папка на диске: тестовый стенд или папка, которую видят обе стороны | `remote-folder` (путь) |
+
+---
+
+## Где работает
+
+- Только у прокси и листенеров **`vless`**.
+- **VLESS Encryption обязателен.** Клиенту нужен `encryption`, серверу `decryption`, и ни один из них не может быть пустым или `none`: хранилище видит каждый объект, и от него трафик защищает только это шифрование. Пару выдаёт `mihomo generate vless-mlkem768` или `xray vlessenc`: одна строка идёт на сервер, другая на клиент.
+- **`flow` запрещён** и у прокси, и у пользователей листенера.
+- **Клиенту нужен [mux.cool](/ru/config/proxies/mux-cool/#xdrive)**: `enabled: true`, а `xudp-proxy-udp443` любой, кроме `skip`. Значения `max-concurrency` ниже 128 поднимаются до 128.
+- **`server` и `port` обязательны по формату прокси, но транспорт их не использует.** Куда идут запросы, задаёт URL хранилища или [`xdrive-opts.address`](#соединение-с-хранилищем).
+- **`reality-opts`, `shadow-tls-opts`, `restls-opts` и `jls-opts` запрещены**: TLS такого прокси относится к запросам к хранилищу, а не к VLESS.
+
+Конфиг с таким прокси не загрузится, листенер с такими настройками не запустится. Две вещи прокси проверяет только при первом подключении: пустой `remote-folder` у `google-drive` и `local` и шаблон без всех четырёх операций или без `names-regex`.
+
+---
+
+## Формат конфигурации
+
+Клиент на Google Drive; как получить значения, описано [ниже](#как-получить-четыре-значения):
+
+```yaml
+proxies:
+  - name: xdrive-gdrive
+    type: vless
+    server: example.com              # обязательно по формату, не используется
+    port: 443                        # то же самое
+    uuid: <uuid>
+    encryption: "<encryption>"       # клиентская строка из пары
+    network: xdrive
+    udp: true
+    tls: true                        # необязательно: у https-адреса TLS есть всегда
+    servername: www.google.com       # SNI запросов к хранилищу
+    alpn: [h2]
+    client-fingerprint: chrome
+    mux.cool:
+      enabled: true                  # обязательно
+    xdrive-opts:
+      service: google-drive
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+      eager-window-ms: 10000
+```
+
+### `xdrive-opts`
+
+Число, равное `0` или не заданное, даёт значение по умолчанию. «На Drive» значит `service: google-drive`.
+
+| Поле | По умолчанию | Что делает |
+|------|--------------|------------|
+| `service` | обязательно | `google-drive` (работает и старое написание `Google Drive`), `template`, `s3`, `local` |
+| `remote-folder` | обязательно, кроме `template` | Id папки на Drive, путь для `local`, префикс ключей для `s3`, `{folder}` в шаблоне |
+| `secrets` | — | Учётные данные, см. таблицу режимов. В шаблоне доступны как `{secret0}`, `{secret1}`, … |
+| `segment-bytes` | `524288` | Наибольший размер объекта с сегментом данных. Не больше 16 МиБ, большее значение обрезается |
+| `flush-interval-ms` | `20`, на Drive `10` | Сколько писатель копит данные перед отправкой |
+| `poll-interval-ms` | `50` | Самый быстрый опрос хранилища |
+| `max-poll-interval-ms` | `500`, на Drive `200` | Самый медленный опрос. Не меньше `poll-interval-ms` |
+| `eager-window-ms` | `2000` | Сколько опрос остаётся быстрым после последнего трафика |
+| `session-ttl-seconds` | `300` | Сколько сервер хранит невостребованное объявление сессии и объекты брошенной сессии, прежде чем удалить |
+| `concurrency` | `8`, на Drive `64` | Сколько сегментов сессии идёт одновременно; на Drive — сколько объектов-слотов в каждую сторону. Не больше 256 |
+| `hole-timeout-ms` | `30000` | Сколько ждать пропавший сегмент, когда следующие уже пришли; потом сессия падает. На Drive важно только для сессии, которая не смогла создать слоты |
+| `template` | обязательно для `template` | См. [template](#template-любое-http-хранилище) |
+| `s3` | обязательно для `s3` | См. [s3](#s3) |
+| `reuse-settings` | см. [ниже](#reuse-settings) | XMUX соединений с хранилищем |
+| `address` | хост из URL | Куда подключаться вместо хоста из URL |
+| `port` | порт из URL | Порт подключения. Работает только вместе с `address` |
+
+### Соединение с хранилищем
+
+TLS-поля прокси (`tls`, `servername`, `alpn`, `client-fingerprint`, `skip-cert-verify`, `fingerprint`, `certificate`, `private-key`, `ech-opts`, `name-cert-verify`) относятся к запросам к хранилищу. Сам VLESS защищён VLESS Encryption.
+
+- Для адресов `https://` TLS работает всегда, даже без `tls: true`.
+- `servername`: по умолчанию хост из URL.
+- `client-fingerprint`: по умолчанию `chrome`.
+- `alpn`: по умолчанию `h2` и `http/1.1`. Только `alpn: [h3]` означает HTTP/3: QUIC поверх UDP, без отката на TCP.
+- `address` и `port` из `xdrive-opts` говорят, куда подключаться вместо хоста и порта из URL. Хост из URL остаётся в заголовке `Host` и служит SNI по умолчанию.
+- `dialer-proxy`, `interface-name` и `routing-mark` прокси действуют на соединения с хранилищем.
+- `finalmask.tcp` оборачивает соединения с хранилищем под TLS. `finalmask.udp` работает только при `alpn: [h3]` и оборачивает QUIC-сокет; до Google Drive из масок там допускается только `noise`, это проверяется при загрузке конфига.
+
+Доменный фронтинг с Google Drive: подключаемся к `www.google.com` или к адресу фронтенда Google, с этим именем в SNI:
+
+```yaml
+    servername: www.google.com
+    xdrive-opts:
+      service: google-drive
+      address: www.google.com      # или "<IP_ФРОНТЕНДА_GOOGLE>"
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+```
+
+<Aside type="note">
+В инструкции Xray по Google Drive сказано, что клиент подключается к `settings.address`. Код Xray v26.11.9 это поле для XDRIVE не читает: запросы идут на хост API (`www.googleapis.com`), если не задан `streamSettings.address`. В Prizrak-Core это поле называется `xdrive-opts.address`, а `server` соответствует `settings.address` и тоже игнорируется.
+</Aside>
+
+### `reuse-settings`
+
+XMUX соединений с хранилищем, ключи те же, что у `xhttp-opts.reuse-settings`. Значения — число или диапазон `"a-b"`, кроме `h-keep-alive-period`.
+
+| Поле | Что делает |
+|------|------------|
+| `max-connections` | Сколько соединений с хранилищем держать. Нельзя вместе с `max-concurrency` |
+| `max-concurrency` | Сколько сессий делят одно соединение, прежде чем откроется новое |
+| `c-max-reuse-times` | Сколько сессий соединение примет за свою жизнь |
+| `h-max-request-times` | Сколько запросов проходит по соединению |
+| `h-max-reusable-secs` | Сколько секунд соединение принимает новые сессии |
+| `h-keep-alive-period` | Секунды. HTTP/2 по умолчанию пингует раз в 45 с, отрицательное значение это выключает; HTTP/3 шлёт keep-alive только при положительном значении |
+
+Без этого блока действуют `max-connections: 1` (на Google Drive по h2 — `4`) и `h-max-reusable-secs: "1800-3000"`. Как только задано хоть одно поле, эти значения по умолчанию перестают действовать, поэтому всё, что важно, задавайте вместе.
+
+---
+
+## Google Drive
+
+`remote-folder` — id папки на Drive, `secrets` — client id, client secret и refresh token, именно в таком порядке. Обе стороны используют одни и те же четыре значения.
+
+### Как получить четыре значения
+
+<Steps>
+
+1. Заведите отдельный аккаунт Google. XDRIVE нужен полный доступ `drive`, поэтому три секрета позволяют читать и менять все файлы этого аккаунта.
+2. В [консоли Google Cloud](https://console.cloud.google.com/) создайте свой проект и включите в нём **Google Drive API**. Google считает запросы по проекту, так что не делите проект с другими людьми.
+3. Откройте **Google Auth Platform** и настройте экран согласия с аудиторией **External**. В **Data Access** добавьте доступ `https://www.googleapis.com/auth/drive`. Для опубликованного приложения Google попросит ссылки на главную страницу, политику конфиденциальности и условия использования; их домен сначала добавьте в **Authorized domains**.
+4. В **Audience** опубликуйте приложение, чтобы статус стал **In production**. Пока оно в режиме Testing, refresh token живёт только 7 дней. Проверка приложения в Google не нужна: один раз появится предупреждение о непроверенном приложении, и всё.
+5. В **Clients** создайте клиента типа **Web application** с redirect URI `https://developers.google.com/oauthplayground`. Скопируйте client id и client secret.
+6. Откройте [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/). В меню под шестерёнкой включите свои учётные данные OAuth и вставьте client id и secret. Авторизуйте доступ `https://www.googleapis.com/auth/drive` под отдельным аккаунтом, обменяйте код на токены и скопируйте **refresh token**.
+7. В Google Drive создайте пустую папку и используйте её только для XDRIVE. Id папки — последняя часть её адреса, после `/folders/`.
+
+</Steps>
+
+При неверных учётных данных ядро пишет в лог `Google rejected the OAuth credentials`. Папка должна принадлежать тому же аккаунту, что и токен.
+
+### Настройка и лимиты
+
+Для обычного просмотра сайтов задайте `eager-window-ms: 10000` на обеих сторонах, как в примере выше: опрос останется быстрым в паузах при загрузке страницы. Остальные числа и `reuse-settings` лучше не трогать.
+
+- Одно соединение mux.cool — одна сессия XDRIVE. У сессии на Drive по кольцу из 64 файлов-слотов в каждую сторону, это примерно 130 запросов только на открытие, и свой опрос. Поэтому mux.cool и обязателен.
+- Google ограничивает число запросов в минуту на проект. Ответ `403` с `Requests per minute` — это как раз этот лимит: транспорт повторяет запрос с паузами, так что короткий всплеск только замедлит работу. Если ошибка не уходит, уберите `eager-window-ms`, поставьте `max-poll-interval-ms: 500` и убедитесь, что проектом больше никто не пользуется.
+- На одном живом подключении первая сессия открывалась около 6 с, следующие запросы шли 2–3 с, скачивание — примерно 0,9 МБ/с по h2 и 1,2 МБ/с по h3. Группе `url-test` не хватит стандартного `timeout: 5000` на первую сессию: поднимите его, например, до `15000`.
+- Клиент и сервер входят в один и тот же Drive, так что утечка с клиента открывает весь аккаунт. Конфиги с этими секретами не показывайте никому.
+
+---
+
+## S3
+
+```yaml
+proxies:
+  - name: xdrive-s3
+    type: vless
+    server: example.com
+    port: 443
+    uuid: <uuid>
+    encryption: "<encryption>"
+    network: xdrive
+    udp: true
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: s3
+      remote-folder: xdrive/tunnel1       # префикс ключей
+      secrets: ["<ACCESS_KEY>", "<SECRET_KEY>"]   # третий элемент — session token
+      s3:
+        endpoint: https://s3.example.com
+        region: us-east-1
+        bucket: my-bucket
+        path-style: true
+```
+
+| Поле | По умолчанию | Что делает |
+|------|--------------|------------|
+| `s3.endpoint` | обязательно | Адрес `http` или `https`, без логина, запроса и фрагмента |
+| `s3.region` | `us-east-1` | Регион для подписи |
+| `s3.bucket` | обязательно | Имя бакета, без разделителей пути |
+| `s3.path-style` | `true` | `false` — адресация virtual-hosted (`bucket.endpoint`): нужно DNS-имя в `endpoint` и DNS-совместимое имя бакета |
+
+`remote-folder` здесь обязателен: относительный префикс без пустых компонентов, `.` и `..`.
+
+---
+
+## `template`: любое HTTP-хранилище
+
+Шаблон описывает запросы к хранилищу: как войти и как положить, получить, удалить и перечислить объекты. Пример для WebDAV:
+
+```yaml
+proxies:
+  - name: xdrive-webdav
+    type: vless
+    server: example.com
+    port: 443
+    uuid: <uuid>
+    encryption: "<encryption>"
+    network: xdrive
+    udp: true
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: template
+      remote-folder: xdrive
+      secrets: ["<LOGIN>", "<PASSWORD>"]
+      template:
+        flatten: true
+        auth:
+          type: basic
+          username: "{secret0}"
+          password: "{secret1}"
+        put: {method: PUT, url: "https://dav.example.com/{folder}/{name}"}
+        get: {method: GET, url: "https://dav.example.com/{folder}/{name}"}
+        delete: {method: DELETE, url: "https://dav.example.com/{folder}/{name}"}
+        list:
+          method: PROPFIND
+          url: "https://dav.example.com/{folder}/"
+          headers: {Depth: "1"}
+          names-regex: '<d:href>[^<]*/([^/<]+)</d:href>'
+        retry:
+          status: [429, 500, 502, 503]
+```
+
+Ключи пишутся в kebab-case. Подходят и ключи camelCase из Xray, и строка с JSON из Xray. Внутри `header`, `headers` и `form` ключи ваши, они не меняются.
+
+| Поле | Что делает |
+|------|------------|
+| `flatten` | `true` держит все объекты в одной папке, а `/` в именах заменяет на `~`. Без него в именах объектов есть `/`, и родительские папки хранилище должно создавать само; WebDAV этого не умеет, ему нужен `flatten: true` |
+| `concurrency` | Сколько запросов одновременно у одной сессии: по умолчанию `64`, не больше 256 |
+| `auth` | Как войти, см. ниже |
+| `put`, `get`, `delete`, `list` | Операции, обязательны все четыре |
+| `retry.status` | Коды ответа, при которых запрос повторяется. Сетевые ошибки повторяются в любом случае |
+| `retry.rate-reason` | JSON-путь в теле ответа `403`: если там непустая строка, запрос повторяется |
+
+У каждой операции есть поля:
+
+| Поле | Что делает |
+|------|------------|
+| `method` | HTTP-метод, по умолчанию `GET`, так что для `put` и `delete` его надо указать |
+| `url` | Адрес запроса |
+| `headers` | Дополнительные заголовки |
+| `body` | Только в `put`: своё тело вместо сырых данных, обычно с `{data}` |
+| `names-regex` | Обязателен в `list`: регулярное выражение с группой захвата, в которой одно имя объекта. Без `flatten` список должен содержать прямых потомков папки |
+| `href-path`, `href-method` | Делают операцию двухшаговой: на первый запрос приходит JSON, затем адрес из `href-path` вызывается методом `href-method` (по умолчанию `GET`). Второй запрос несёт данные и идёт без `auth` и `headers` |
+
+Двухшаговая загрузка с заранее подписанным адресом (pre-signed URL):
+
+```yaml
+        put: {method: GET, url: "https://cloud-api.example.com/upload?path={folder}/{name}", href-path: href, href-method: PUT}
+```
+
+`auth.type`:
+
+| Значение | Поля | Что делает |
+|----------|------|------------|
+| `none` (по умолчанию) | — | Без входа |
+| `static` | `header` | Добавляет заголовки из `header` |
+| `basic` | `username`, `password` | `Authorization: Basic` |
+| `oauth2` | `token-url`, `form`, `token-path`, `expiry-path`, `header` | Отправляет `form` методом POST на `token-url` и добавляет `header` с токеном в `{token}`, например `{Authorization: "Bearer {token}"}` |
+
+Для `oauth2` `token-path` — JSON-путь к токену (по умолчанию `access_token`), `expiry-path` — JSON-путь к сроку его жизни в секундах (без него 3600). Значения `form` уходят как есть, спецсимволы кодируйте сами.
+
+Подстановки:
+
+| Имя | Где работает | Значение |
+|-----|--------------|----------|
+| `{folder}` | везде | `remote-folder` |
+| `{secret0}`, `{secret1}`, … | везде | Элементы `secrets` |
+| `{name}` | `put`, `get`, `delete` | Имя объекта |
+| `{prefix}` | `list` | Какую папку перечислить |
+| `{data}` | `put.body` | Данные в base64 |
+| `{token}` | `auth.header` и `headers` операций | Токен из `oauth2` |
+
+---
+
+## `local`: папка
+
+Обе стороны читают и пишут одну папку; если её нет, она создаётся. Подходит для стенда на одной машине или для сетевой папки, смонтированной с обеих сторон.
+
+```yaml
+proxies:
+  - name: xdrive-local
+    type: vless
+    server: example.com
+    port: 443
+    uuid: <uuid>
+    encryption: "<encryption>"
+    network: xdrive
+    udp: true
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: local
+      remote-folder: /var/lib/xdrive
+```
+
+---
+
+## Сервер: листенер vless
+
+Листенер `vless` обслуживает XDRIVE через блок `xdrive-config`. В нём те же поля, что и в `xdrive-opts`, плюс `servername`, `alpn`, `client-fingerprint`, `skip-cert-verify` и `fingerprint` для TLS запросов листенера к хранилищу. Сокет листенер не открывает: он опрашивает хранилище.
+
+```yaml
+listeners:
+  - name: xdrive-in
+    type: vless
+    users:
+      - username: user1
+        uuid: <uuid>
+    decryption: "<decryption>"        # серверная строка из пары
+    xdrive-config:
+      service: google-drive
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+      eager-window-ms: 10000
+      # servername: www.google.com
+      # alpn: [h2]
+      # client-fingerprint: chrome
+      # skip-cert-verify: false
+      # fingerprint: ""
+      # address: ""                   # как у клиента
+      # port: 0
+```
+
+- `decryption` обязателен, `flow` у пользователей запрещён.
+- `listen` и `port` можно не указывать, здесь они ничего не значат.
+- Если задан `xdrive-config`, остальные транспортные и TLS-параметры листенера не читаются: `ws-path`, `xhttp-config`, `grpc-service-name`, `certificate`, `reality-config` и другие.
+- `alpn: [h3]` на листенере не поддерживается и не даёт ему запуститься.
+- `finalmask.tcp` оборачивает соединения с хранилищем. `finalmask.udp` запрещён.
+- Листенер принимает сессии и от клиентов Xray, и от Prizrak-Core.
+
+---
+
+## Из Xray JSON и ссылок
+
+Подписку или файл Xray JSON с `streamSettings.network: xdrive` Prizrak-Core превращает в такой прокси сам.
+
+| Xray (JSON) | Prizrak-Core (YAML) |
+|-------------|---------------------|
+| `xdriveSettings.service`, `.secrets`, `.template`, `.s3` | `xdrive-opts.service`, `.secrets`, `.template`, `.s3` |
+| `xdriveSettings.remoteFolder` | `xdrive-opts.remote-folder` |
+| `segmentBytes`, `flushIntervalMs`, `pollIntervalMs`, `maxPollIntervalMs`, `sessionTtlSeconds`, `concurrency`, `eagerWindowMs`, `holeTimeoutMs` | то же в kebab-case |
+| `s3.pathStyle` | `s3.path-style` |
+| `xmux` | `reuse-settings` |
+| `streamSettings.address`, `streamSettings.port` | `xdrive-opts.address`, `xdrive-opts.port` |
+| `tlsSettings` | TLS-поля прокси |
+| `mux`: `concurrency`, `xudpConcurrency`, `xudpProxyUDP443` | `mux.cool`: `max-concurrency`, `xudp-concurrency`, `xudp-proxy-udp443` |
+
+Узел без `mux.enabled: true` отбрасывается: Xray его тоже не принимает. `finalmask.udp` переносится только при `alpn: [h3]`.
+
+Своей ссылки для XDRIVE у Xray нет. Prizrak-Core читает ссылку, устроенную как у xhttp:
+
+```text
+vless://<uuid>@<server>:<port>?encryption=<encryption>&type=xdrive&service=google-drive&remoteFolder=<folder>&secrets=<client-id>,<client-secret>,<refresh-token>&security=tls&sni=www.google.com&alpn=h2&extra=<JSON xdriveSettings в URL-кодировке>#name
+```
+
+`mux.cool` включается сам. В `extra` можно передать любые поля `xdriveSettings`; `address` и `port` из ссылки не задаются.
+
+---
+
+## Через маппер хоста Remnawave
+
+Панель Remnawave этого транспорта не знает, но маппер хоста может превратить узел обычного хоста в прокси XDRIVE. См. [XDRIVE через маппер](/ru/remnawave/xdrive/).
+
+---
+
+## Ограничения
+
+- Только VLESS.
+- Клиенты на обычном mihomo транспорта не знают: они получат прокси, который не подключится.
+- По HTTP/3 не перенесены Chrome QUIC-отпечаток и BBR из Xray, поэтому рукопожатие QUIC отличается от Xray, а `finalmask.quicParams` не читается. На листенере HTTP/3 нет вообще.
+- `s3` проверялся только на поддельном сервере, который проверяет подпись SigV4. Настоящий S3 и адресация virtual-hosted не проверялись.
+- Вход `oauth2` и `static` и двухшаговые операции шаблона покрыты только тестами, перенесёнными из Xray.
+- Долгая работа и поведение под квотами Google не измерялись.
+- Ошибка в написании ключа или незнакомый ключ игнорируются, как везде в mihomo: опечатка в ключе ошибки не даст.

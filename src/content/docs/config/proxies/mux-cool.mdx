@@ -34,6 +34,15 @@ The proxy-level [`udp-443: reject`](/config/proxies/udp-443/) is checked before 
 
 To enable mux.cool for Remnawave subscription users, use the Remnawave host mapper; see [mux.cool via the host mapper](/remnawave/mux-cool/).
 
+## XDRIVE
+
+An [XDRIVE](/config/proxies/xdrive/) proxy does not work without mux.cool. One mux.cool connection is one XDRIVE session, with its own objects on the storage and its own polling, so as many streams as possible have to share it.
+
+- `enabled: true` is required, and `xudp-proxy-udp443: skip` is refused. Without that the config does not load.
+- `max-concurrency` below 128, the default 8 included, is raised to 128. A higher value stays.
+- `max-connections` keeps its default of 128: after that many streams over its life the session is replaced with a new one.
+- `max-carriers` limits how many sessions are open at once, which also limits the requests to the storage.
+
 :::note[VLESS server]
 Up to v1.19.33-r8 a VLESS inbound served mux.cool with the simpler server of sing-vmess; only VMess used this implementation. Later releases use it for VLESS too, with its XUDP handling and limits.
 :::

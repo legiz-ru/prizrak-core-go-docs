@@ -1,0 +1,88 @@
+---
+title: "XDRIVE through the mapper"
+description: Deliver a VLESS over XDRIVE proxy to Prizrak-Core clients of a Remnawave panel with the host mapper.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prizrak-Core carries [VLESS over XDRIVE](/config/proxies/xdrive/) 👻: the session travels as objects on Google Drive or another storage, and the client and the server never connect to each other.
+
+Remnawave does not know this transport. A config profile with an inbound on `network: xdrive` does not pass the panel's validation: the `dev` branch at the time of writing (3.4.9) allows `grpc`, `httpupgrade`, `hysteria`, `kcp`, `raw`, `tcp`, `ws` and `xhttp`. So the panel can neither run such an inbound on a node nor manage its users. The [host mapper](/remnawave/) works on the node that has already been generated, though, and can rewrite the node of an ordinary host into an XDRIVE proxy.
+
+## What you need
+
+- **A separate server** outside the panel, with its own list of users: Xray-core v26.11.9 or newer, or a [Prizrak-Core listener](/config/proxies/xdrive/#server-a-vless-listener). It connects to nothing but the storage, so it can run anywhere.
+- **A host on the panel** to carry the mapper: any VLESS host except a `kcp` one, because Remnawave leaves `kcp` hosts out of the Mihomo subscription before the mapper runs. `smux` must be off on it. Its address, port and inbound do not matter for the proxy the client gets.
+- In **Exclude from subscription type** check every format except Mihomo. The mapper below changes only the `mihomo` list, so the other formats would still get the ordinary node of this host.
+
+## The mapper
+
+The whole proxy is written with `set`. Fill in your own values:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "network", "value": "xdrive" },
+    { "op": "set", "to": "uuid", "value": "<uuid of a user on the XDRIVE server>" },
+    { "op": "set", "to": "encryption", "value": "<encryption>" },
+    { "op": "unset", "to": "flow" },
+    { "op": "unset", "to": "reality-opts" },
+    { "op": "set", "to": "servername", "value": "www.google.com" },
+    { "op": "set", "to": "alpn", "value": ["h2"] },
+    { "op": "set", "to": "['mux.cool']", "value": { "enabled": true } },
+    {
+      "op": "set",
+      "to": "xdrive-opts",
+      "value": {
+        "service": "google-drive",
+        "remote-folder": "<GOOGLE_DRIVE_FOLDER_ID>",
+        "secrets": ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"],
+        "eager-window-ms": 10000
+      }
+    }
+  ],
+  "base64": []
+}
+```
+
+- `uuid` is the id of a user of the XDRIVE server. The generator writes the subscription user's own id here, which that server does not know.
+- `encryption` is the client's string of the pair whose other half is the server's `decryption`. The generator fills it only from the host's own settings.
+- `unset flow` and `unset reality-opts`: XDRIVE refuses both. On a host that has neither they change nothing.
+- `servername` and `alpn` are about the requests to the storage. A host with TLS has its own SNI there, which is why they are replaced.
+- `xdrive-opts` takes every field from the [table](/config/proxies/xdrive/#xdrive-opts), in the same kebab-case keys as in YAML.
+
+## What the client gets
+
+```yaml
+proxies:
+  - name: 🇷🇺 Drive
+    type: vless
+    server: <host address>
+    port: 443
+    uuid: <uuid of a user on the XDRIVE server>
+    encryption: "<encryption>"
+    udp: true
+    packet-encoding: xudp
+    network: xdrive
+    servername: www.google.com
+    alpn: [h2]
+    client-fingerprint: chrome
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: google-drive
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+      eager-window-ms: 10000
+```
+
+`server` and `port` stay those of the host; the transport does not use them.
+
+<Aside type="caution">
+Everyone with this subscription gets the `secrets`. On Google Drive they give full access to the Drive of that account, so use a separate account and give the host only to people you trust. All users share the UUID of the XDRIVE server, and the panel neither sees that traffic nor applies per-user limits to it.
+</Aside>
+
+<Aside type="note">
+Clients on regular mihomo do not know XDRIVE: they get a proxy that does not connect. Send this host only to Prizrak-Core and Prizrak-Box.
+</Aside>

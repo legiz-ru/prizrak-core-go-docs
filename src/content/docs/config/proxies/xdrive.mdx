@@ -1,0 +1,388 @@
+---
+title: "👻 XDRIVE: VLESS over file storage"
+description: "The XDRIVE transport of Xray-core in Prizrak-Core: a VLESS session carried as objects on Google Drive, S3, any HTTP storage or a shared folder. Client, listener and every option."
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+<Aside type="caution" title="Under testing">
+This feature is new and still being tested. If something does not work, write to the [Prizrak Talk](https://t.me/+OqHkX0bo178xNDcy) Telegram chat.
+</Aside>
+
+**XDRIVE** is a transport of [Xray-core](https://github.com/XTLS/Xray-core) (v26.11.9). A VLESS session travels as objects on a storage service: the client and the server never connect to each other, each one writes small objects into a shared folder and polls it for the objects of the other side. The network sees only HTTPS to the storage, for example requests to the Google Drive API. The format on the storage is Xray's, so a Prizrak-Core client works with an Xray server and an Xray client with a Prizrak-Core listener.
+
+There are four modes, chosen by `service`:
+
+| `service` | Storage | Also required |
+|-----------|---------|---------------|
+| `google-drive` | The Google Drive API | `remote-folder` (folder id), `secrets`: exactly 3, client id, client secret, refresh token |
+| `template` | Any HTTP storage, described by a template | `template` |
+| `s3` | S3 (SigV4, path-style or virtual-hosted) | the `s3` block (`endpoint`, `bucket`), `remote-folder` (key prefix), `secrets`: 2 or 3, access key, secret key, optional session token |
+| `local` | A folder on disk: a test stand or a folder both sides can see | `remote-folder` (path) |
+
+---
+
+## Where it works
+
+- On **`vless`** proxies and listeners only.
+- **VLESS Encryption is mandatory.** The client needs `encryption`, the server `decryption`, and neither can be empty or `none`: the storage provider can read every object, and the encryption is what keeps your traffic from it. A pair comes from `mihomo generate vless-mlkem768` or `xray vlessenc`: one string goes to the server, the other to the client.
+- **`flow` is refused**, on the proxy and on the users of a listener.
+- **The client needs [mux.cool](/config/proxies/mux-cool/#xdrive)**: `enabled: true`, and `xudp-proxy-udp443` anything but `skip`. A `max-concurrency` below 128 is raised to 128.
+- **`server` and `port` are required by the proxy format but not used by the transport.** Where the requests go is set by the URL of the storage or by [`xdrive-opts.address`](#the-connection-to-the-storage).
+- **`reality-opts`, `shadow-tls-opts`, `restls-opts` and `jls-opts` are refused**: the TLS of such a proxy belongs to the requests to the storage, not to VLESS.
+
+A proxy that breaks these rules fails with an error when the config loads, a listener when it starts. Two things a proxy checks only at its first connection: an empty `remote-folder` on `google-drive` and `local`, and a template without all four operations or without `names-regex`.
+
+---
+
+## Configuration format
+
+A client on Google Drive; how to get the values is described [below](#getting-the-four-values):
+
+```yaml
+proxies:
+  - name: xdrive-gdrive
+    type: vless
+    server: example.com              # required by the format, not used
+    port: 443                        # the same
+    uuid: <uuid>
+    encryption: "<encryption>"       # the client's string of the pair
+    network: xdrive
+    udp: true
+    tls: true                        # optional: an https URL has TLS anyway
+    servername: www.google.com       # SNI of the requests to the storage
+    alpn: [h2]
+    client-fingerprint: chrome
+    mux.cool:
+      enabled: true                  # required
+    xdrive-opts:
+      service: google-drive
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+      eager-window-ms: 10000
+```
+
+### `xdrive-opts`
+
+A number that is `0` or absent takes the default. "On Drive" means `service: google-drive`.
+
+| Field | Default | What it does |
+|-------|---------|--------------|
+| `service` | required | `google-drive` (the old spelling `Google Drive` works too), `template`, `s3`, `local` |
+| `remote-folder` | required, except for `template` | Folder id on Drive, a path for `local`, a key prefix for `s3`, `{folder}` in a template |
+| `secrets` | — | Credentials, see the table of modes. A template reads them as `{secret0}`, `{secret1}`, … |
+| `segment-bytes` | `524288` | Largest object that holds a segment of data. At most 16 MiB, a larger value is cut to it |
+| `flush-interval-ms` | `20`, on Drive `10` | How long the writer gathers data before sending it |
+| `poll-interval-ms` | `50` | The fastest poll of the storage |
+| `max-poll-interval-ms` | `500`, on Drive `200` | The slowest poll. Never below `poll-interval-ms` |
+| `eager-window-ms` | `2000` | How long polling stays fast after the last traffic |
+| `session-ttl-seconds` | `300` | How long the server keeps an unclaimed announcement of a session and the objects of an abandoned one before deleting them |
+| `concurrency` | `8`, on Drive `64` | Segments in flight per session; on Drive, the number of slot objects per direction. At most 256 |
+| `hole-timeout-ms` | `30000` | How long to wait for a missing segment while later ones are already there, then the session fails. On Drive it matters only for a session that could not create its slots |
+| `template` | required for `template` | See [template](#template-any-http-storage) |
+| `s3` | required for `s3` | See [s3](#s3) |
+| `reuse-settings` | see [below](#reuse-settings) | XMUX of the connections to the storage |
+| `address` | the host of the URL | Where to connect instead of the host of the URL |
+| `port` | the port of the URL | Port to connect to. Used only together with `address` |
+
+### The connection to the storage
+
+The TLS fields of the proxy (`tls`, `servername`, `alpn`, `client-fingerprint`, `skip-cert-verify`, `fingerprint`, `certificate`, `private-key`, `ech-opts`, `name-cert-verify`) are about the requests to the storage. VLESS itself is protected by VLESS Encryption.
+
+- `https://` URLs always use TLS, even without `tls: true`.
+- `servername`: the host of the URL by default.
+- `client-fingerprint`: `chrome` by default.
+- `alpn`: `h2` and `http/1.1` by default. `alpn: [h3]` on its own means HTTP/3: QUIC over UDP, with no fallback to TCP.
+- `address` and `port` of `xdrive-opts` say where to connect instead of the host and port of the URL. The host of the URL stays in the `Host` header and is the default SNI.
+- `dialer-proxy`, `interface-name` and `routing-mark` of the proxy apply to the connections to the storage.
+- `finalmask.tcp` wraps the connections to the storage, under TLS. `finalmask.udp` works only with `alpn: [h3]` and wraps the QUIC socket; to Google Drive only `noise` is accepted there, which is checked when the config loads.
+
+Domain fronting with Google Drive: connect to `www.google.com` or to the address of a Google front end, with that name in SNI:
+
+```yaml
+    servername: www.google.com
+    xdrive-opts:
+      service: google-drive
+      address: www.google.com      # or "<GOOGLE_FRONT_END_IP>"
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+```
+
+<Aside type="note">
+The Google Drive guide of Xray says the client connects to `settings.address`. The code of Xray v26.11.9 does not read that field for XDRIVE: requests go to the host of the API (`www.googleapis.com`) unless `streamSettings.address` is set. In Prizrak-Core that field is `xdrive-opts.address`, and `server` plays the part of `settings.address`, so it is ignored as well.
+</Aside>
+
+### `reuse-settings`
+
+XMUX of the connections to the storage, with the same keys as `xhttp-opts.reuse-settings`. Values are a number or a range `"a-b"`, except `h-keep-alive-period`.
+
+| Field | What it does |
+|-------|--------------|
+| `max-connections` | How many connections to the storage to keep. Cannot be set together with `max-concurrency` |
+| `max-concurrency` | How many sessions share one connection before another is opened |
+| `c-max-reuse-times` | How many sessions one connection takes over its life |
+| `h-max-request-times` | How many requests one connection carries |
+| `h-max-reusable-secs` | For how many seconds a connection takes new sessions |
+| `h-keep-alive-period` | Seconds. HTTP/2 pings every 45 by default and a negative value turns them off; HTTP/3 keeps alive only with a positive value |
+
+Without the block the defaults are `max-connections: 1` (on Google Drive over h2, `4`) and `h-max-reusable-secs: "1800-3000"`. As soon as any field is set, none of these defaults apply, so set everything you care about together.
+
+---
+
+## Google Drive
+
+`remote-folder` is the id of a Drive folder and `secrets` are the client id, the client secret and the refresh token, in that order. Both sides use the same four values.
+
+### Getting the four values
+
+<Steps>
+
+1. Use a separate Google account. XDRIVE needs the full `drive` scope, so the three secrets can read and change every file of that account.
+2. In the [Google Cloud console](https://console.cloud.google.com/) create your own project and enable the **Google Drive API** in it. Google counts requests per project, so do not share a project with other people.
+3. Open **Google Auth Platform** and configure the consent screen with the **External** audience. In **Data Access** add the scope `https://www.googleapis.com/auth/drive`. Google asks a published app for links to a home page, a privacy policy and terms of service; add their domain under **Authorized domains** first.
+4. In **Audience** publish the app so that its status is **In production**. While it stays in Testing, refresh tokens die after 7 days. Google's own verification is not needed: you will only see an "unverified app" warning once.
+5. In **Clients** create a client of the **Web application** type with the redirect URI `https://developers.google.com/oauthplayground`. Copy the client id and the client secret.
+6. Open the [OAuth 2.0 Playground](https://developers.google.com/oauthplayground/). In the gear menu turn on your own OAuth credentials and paste the client id and secret. Authorize the scope `https://www.googleapis.com/auth/drive` under the separate account, then exchange the code for tokens and copy the **refresh token**.
+7. In Google Drive create an empty folder and keep it for XDRIVE only. The folder id is the last part of its address, after `/folders/`.
+
+</Steps>
+
+With wrong credentials the core writes `Google rejected the OAuth credentials` to the log. The folder must belong to the same account as the token.
+
+### Tuning and limits
+
+For web browsing set `eager-window-ms: 10000`, as in the example above, on both sides. Polling then stays fast through the pauses inside a page load. Leave the other numbers and `reuse-settings` at their defaults.
+
+- A mux.cool connection is one XDRIVE session. A session on Drive holds a ring of 64 slot files per direction, about 130 requests just to open, and polls on its own. That is why mux.cool is mandatory.
+- Google limits requests per minute per project. An answer `403` with `Requests per minute` means that limit: the transport retries with a backoff, so a short burst only slows it down. If it keeps happening, remove `eager-window-ms`, set `max-poll-interval-ms: 500` and make sure nobody else uses the project.
+- On one live connection the first session took about 6 s, later requests 2–3 s, and downloads ran at about 0.9 MB/s over h2 and 1.2 MB/s over h3. A `url-test` needs more than the default `timeout: 5000` to survive the first session: raise it, for example to `15000`.
+- Server and client log in to the same Drive, so a compromised client exposes the account. Keep configs with these secrets private.
+
+---
+
+## S3
+
+```yaml
+proxies:
+  - name: xdrive-s3
+    type: vless
+    server: example.com
+    port: 443
+    uuid: <uuid>
+    encryption: "<encryption>"
+    network: xdrive
+    udp: true
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: s3
+      remote-folder: xdrive/tunnel1       # key prefix
+      secrets: ["<ACCESS_KEY>", "<SECRET_KEY>"]   # a third item is the session token
+      s3:
+        endpoint: https://s3.example.com
+        region: us-east-1
+        bucket: my-bucket
+        path-style: true
+```
+
+| Field | Default | What it does |
+|-------|---------|--------------|
+| `s3.endpoint` | required | `http` or `https` URL, without credentials, query or fragment |
+| `s3.region` | `us-east-1` | Region used in the signature |
+| `s3.bucket` | required | Bucket name, no path separators |
+| `s3.path-style` | `true` | `false` is virtual-hosted addressing (`bucket.endpoint`): it needs a DNS name in `endpoint` and a DNS-compatible bucket name |
+
+`remote-folder` is mandatory here: a relative prefix without empty, `.` or `..` components.
+
+---
+
+## `template`: any HTTP storage
+
+A template describes the requests of a storage: how to log in, and how to put, get, delete and list objects. An example for WebDAV:
+
+```yaml
+proxies:
+  - name: xdrive-webdav
+    type: vless
+    server: example.com
+    port: 443
+    uuid: <uuid>
+    encryption: "<encryption>"
+    network: xdrive
+    udp: true
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: template
+      remote-folder: xdrive
+      secrets: ["<LOGIN>", "<PASSWORD>"]
+      template:
+        flatten: true
+        auth:
+          type: basic
+          username: "{secret0}"
+          password: "{secret1}"
+        put: {method: PUT, url: "https://dav.example.com/{folder}/{name}"}
+        get: {method: GET, url: "https://dav.example.com/{folder}/{name}"}
+        delete: {method: DELETE, url: "https://dav.example.com/{folder}/{name}"}
+        list:
+          method: PROPFIND
+          url: "https://dav.example.com/{folder}/"
+          headers: {Depth: "1"}
+          names-regex: '<d:href>[^<]*/([^/<]+)</d:href>'
+        retry:
+          status: [429, 500, 502, 503]
+```
+
+Keys are written in kebab-case. The camelCase keys of Xray and a string with Xray's JSON work too. Inside `header`, `headers` and `form` the keys are your own and stay as they are.
+
+| Field | What it does |
+|-------|--------------|
+| `flatten` | `true` keeps every object in one folder, with `/` in the name replaced by `~`. Without it object names contain `/` and the storage must create the parent folders itself; WebDAV does not, so it needs `flatten: true` |
+| `concurrency` | Requests at once per session: `64` by default, at most 256 |
+| `auth` | How to log in, see below |
+| `put`, `get`, `delete`, `list` | The operations, all four required |
+| `retry.status` | Answer codes to try again. Network errors are retried anyway |
+| `retry.rate-reason` | JSON path in the body of a `403`: when it holds a non-empty string, the request is retried |
+
+Every operation has:
+
+| Field | What it does |
+|-------|--------------|
+| `method` | HTTP method, `GET` by default, so write it for `put` and `delete` |
+| `url` | Address of the request |
+| `headers` | Extra headers |
+| `body` | Only in `put`: a body of its own instead of the raw data, usually with `{data}` |
+| `names-regex` | Required in `list`: a regular expression with a capture group that holds one object name. Without `flatten` the list must give the direct children of the folder |
+| `href-path`, `href-method` | Makes the operation two-step: the first request answers with JSON and the address found at `href-path` is then called with `href-method` (`GET` by default). This second request carries the data, without auth or `headers` |
+
+A two-step upload, as with a pre-signed URL:
+
+```yaml
+        put: {method: GET, url: "https://cloud-api.example.com/upload?path={folder}/{name}", href-path: href, href-method: PUT}
+```
+
+`auth.type`:
+
+| Value | Fields | What it does |
+|-------|--------|--------------|
+| `none` (default) | — | No login |
+| `static` | `header` | Adds the headers of `header` |
+| `basic` | `username`, `password` | `Authorization: Basic` |
+| `oauth2` | `token-url`, `form`, `token-path`, `expiry-path`, `header` | POSTs `form` to `token-url` and adds `header` with the token as `{token}`, for example `{Authorization: "Bearer {token}"}` |
+
+For `oauth2`, `token-path` is the JSON path to the token (`access_token` by default) and `expiry-path` the JSON path to its life in seconds (3600 when unset). The values of `form` are sent as they are, so percent-encode special characters yourself.
+
+Substitutions:
+
+| Name | Where it works | Value |
+|------|----------------|-------|
+| `{folder}` | everywhere | `remote-folder` |
+| `{secret0}`, `{secret1}`, … | everywhere | The items of `secrets` |
+| `{name}` | `put`, `get`, `delete` | Object name |
+| `{prefix}` | `list` | Folder to list |
+| `{data}` | `put.body` | The data in base64 |
+| `{token}` | `auth.header` and `headers` of the operations | The token from `oauth2` |
+
+---
+
+## `local`: a folder
+
+Both sides read and write one folder, created if it is missing. Useful as a test stand on one machine or with a network folder mounted on both sides.
+
+```yaml
+proxies:
+  - name: xdrive-local
+    type: vless
+    server: example.com
+    port: 443
+    uuid: <uuid>
+    encryption: "<encryption>"
+    network: xdrive
+    udp: true
+    mux.cool:
+      enabled: true
+    xdrive-opts:
+      service: local
+      remote-folder: /var/lib/xdrive
+```
+
+---
+
+## Server: a vless listener
+
+A `vless` listener serves XDRIVE with an `xdrive-config` block. It holds the fields of `xdrive-opts`, plus `servername`, `alpn`, `client-fingerprint`, `skip-cert-verify` and `fingerprint` for the TLS of the listener's requests to the storage. The listener opens no socket: it polls the storage.
+
+```yaml
+listeners:
+  - name: xdrive-in
+    type: vless
+    users:
+      - username: user1
+        uuid: <uuid>
+    decryption: "<decryption>"        # the server's string of the pair
+    xdrive-config:
+      service: google-drive
+      remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+      secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
+      eager-window-ms: 10000
+      # servername: www.google.com
+      # alpn: [h2]
+      # client-fingerprint: chrome
+      # skip-cert-verify: false
+      # fingerprint: ""
+      # address: ""                   # as on the client
+      # port: 0
+```
+
+- `decryption` is mandatory and `flow` is refused on the users.
+- `listen` and `port` can be left out, they mean nothing here.
+- With `xdrive-config` set, the other transport and TLS options of the listener are not read: `ws-path`, `xhttp-config`, `grpc-service-name`, `certificate`, `reality-config` and the like.
+- `alpn: [h3]` is not supported on a listener and fails it at start.
+- `finalmask.tcp` wraps the connections to the storage. `finalmask.udp` is refused.
+- The listener accepts sessions from Xray clients and from Prizrak-Core.
+
+---
+
+## From Xray JSON and share links
+
+Prizrak-Core converts an Xray JSON subscription or file with `streamSettings.network: xdrive` into such a proxy.
+
+| Xray (JSON) | Prizrak-Core (YAML) |
+|-------------|---------------------|
+| `xdriveSettings.service`, `.secrets`, `.template`, `.s3` | `xdrive-opts.service`, `.secrets`, `.template`, `.s3` |
+| `xdriveSettings.remoteFolder` | `xdrive-opts.remote-folder` |
+| `segmentBytes`, `flushIntervalMs`, `pollIntervalMs`, `maxPollIntervalMs`, `sessionTtlSeconds`, `concurrency`, `eagerWindowMs`, `holeTimeoutMs` | the same in kebab-case |
+| `s3.pathStyle` | `s3.path-style` |
+| `xmux` | `reuse-settings` |
+| `streamSettings.address`, `streamSettings.port` | `xdrive-opts.address`, `xdrive-opts.port` |
+| `tlsSettings` | the TLS fields of the proxy |
+| `mux`: `concurrency`, `xudpConcurrency`, `xudpProxyUDP443` | `mux.cool`: `max-concurrency`, `xudp-concurrency`, `xudp-proxy-udp443` |
+
+A node without `mux.enabled: true` is dropped, as Xray refuses it too. `finalmask.udp` is carried over only with `alpn: [h3]`.
+
+Xray has no share link for XDRIVE. Prizrak-Core reads one built the way xhttp links are:
+
+```text
+vless://<uuid>@<server>:<port>?encryption=<encryption>&type=xdrive&service=google-drive&remoteFolder=<folder>&secrets=<client-id>,<client-secret>,<refresh-token>&security=tls&sni=www.google.com&alpn=h2&extra=<URL-encoded JSON of xdriveSettings>#name
+```
+
+`mux.cool` is switched on by itself. `extra` holds any field of `xdriveSettings`; `address` and `port` cannot be set from a link.
+
+---
+
+## Through the Remnawave host mapper
+
+The Remnawave panel does not know this transport, but the host mapper can turn the node of an ordinary host into an XDRIVE proxy. See [XDRIVE through the mapper](/remnawave/xdrive/).
+
+---
+
+## Limitations
+
+- VLESS only.
+- Clients on regular mihomo do not know the transport: they get a proxy that does not connect.
+- Over HTTP/3 the Chrome QUIC fingerprint and BBR of Xray are not ported, so the QUIC handshake differs from Xray's, and `finalmask.quicParams` is not read. A listener has no HTTP/3 at all.
+- `s3` has been run only against a fake server that checks the SigV4 signature. Real S3 and virtual-hosted addressing have not been tried.
+- The `oauth2` and `static` logins and the two-step operations of a template are covered by the tests ported from Xray only.
+- Long runs and the behavior under Google's quotas have not been measured.
+- A misspelled or unknown key is ignored, as everywhere in mihomo: a typo in a key raises no error.

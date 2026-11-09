@@ -45,6 +45,7 @@ proxies:
   # udp-443: reject
   # mux.cool:
   #   enabled: true
+  # network: xdrive      # вместе с xdrive-opts, см. страницу XDRIVE
   # finalmask:
   #   tcp:
   #     - type: fragment
@@ -95,7 +96,7 @@ Padding — необязательный параметр, применяемы�
 
 ## network
 
-Транспортный уровень, поддерживает ws/http/h2/grpc/xhttp, если не настроен или настроен с другим значением, используется tcp
+Транспортный уровень, поддерживает ws/http/h2/grpc/xhttp и 👻 `xdrive` (сессия идёт объектами через Google Drive, S3 или другое хранилище, см. [XDRIVE](/ru/config/proxies/xdrive/)), если не настроен или настроен с другим значением, используется tcp
 
 См. [Конфигурация транспортного уровня](/ru/config/proxies/transport/)
 
@@ -108,4 +109,5 @@ Padding — необязательный параметр, применяемы�
 - [`reality-opts.mldsa65-verify`](/ru/config/proxies/reality/): проверка подписи ML-DSA-65 сертификата REALITY.
 - [`xhttp-opts.h2-flow`](/ru/config/proxies/xhttp/): регулятор потока HTTP/2 у XHTTP.
 - `network: mkcp` (алиас `kcp`): [VLESS поверх mKCP](/ru/config/proxies/finalmask/#vless-поверх-mkcp), как в Xray-core после finalmask.
+- [`xdrive-opts`](/ru/config/proxies/xdrive/): транспорт XDRIVE при `network: xdrive`. Нужны `encryption` и `mux.cool`, `flow` запрещён.
 - [`mux.cool`](/ru/config/proxies/mux-cool/) и [`udp-443`](/ru/config/proxies/udp-443/): см. [общие поля](/ru/config/proxies/).

@@ -44,6 +44,11 @@ listeners:
   #   mux-keep-alive-bytes: "100-500"
   #   h2-flow: { enabled: true }
   #   h2-params: { max-concurrent-streams: 256 }
+  # 👻 Prizrak-Core only. If not empty, serves XDRIVE: no socket is opened, the listener polls the storage. Needs decryption.
+  # xdrive-config:
+  #   service: google-drive # google-drive | template | s3 | local, the same fields as xdrive-opts of a proxy
+  #   remote-folder: "<GOOGLE_DRIVE_FOLDER_ID>"
+  #   secrets: ["<CLIENT_ID>", "<CLIENT_SECRET>", "<REFRESH_TOKEN>"]
   # -------------------------
   # Configuration of server-side vless encryption:
   # (native mode / public key XOR only / fully random. 1-RTT generates a random ticket valid for 300-600 seconds each time for 0-RTT reuse / only 1-RTT is allowed)
@@ -134,3 +139,4 @@ listeners:
 - `reality-config` takes the Xray-style server options `target` (alias of `dest`), `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show` and `master-key-log`. `min-client-ver` defaults to `26.3.27` and cannot be lower. See [REALITY](/config/proxies/reality/).
 - `finalmask` with `tcp` masks, the server side of Xray-core's finalmask. See [finalmask](/config/proxies/finalmask/).
 - mux.cool from Xray clients is accepted without any option. See [mux.cool](/config/proxies/mux-cool/).
+- `xdrive-config` serves VLESS over XDRIVE: the same fields as `xdrive-opts` of a proxy, plus the TLS fields of the requests to the storage. It needs `decryption`, opens no socket and makes the other transport and TLS options unused. See [XDRIVE](/config/proxies/xdrive/#server-a-vless-listener).

@@ -45,6 +45,7 @@ proxies:
   # udp-443: reject
   # mux.cool:
   #   enabled: true
+  # network: xdrive      # with xdrive-opts, see the XDRIVE page
   # finalmask:
   #   tcp:
   #     - type: fragment
@@ -95,7 +96,7 @@ Padding is optional and only applies to 1-RTT to remove handshake length charact
 
 ## network
 
-Transport layer. Supports `ws`/`http`/`h2`/`grpc`/`xhttp` and 👻 `mkcp` (alias `kcp`, VLESS over mKCP as in Xray-core since finalmask, see [finalmask](/config/proxies/finalmask/#vless-over-mkcp)). If unset or set to another value, TCP is used.
+Transport layer. Supports `ws`/`http`/`h2`/`grpc`/`xhttp`, 👻 `mkcp` (alias `kcp`, VLESS over mKCP as in Xray-core since finalmask, see [finalmask](/config/proxies/finalmask/#vless-over-mkcp)) and 👻 `xdrive` (the session travels as objects on Google Drive, S3 or another storage, see [XDRIVE](/config/proxies/xdrive/)). If unset or set to another value, TCP is used.
 
 See [Transport configuration](/config/proxies/transport/).
 
@@ -107,4 +108,5 @@ Traffic masks from Xray-core's `finalmask`: `tcp` masks (fragment, header-custom
 
 - [`reality-opts.mldsa65-verify`](/config/proxies/reality/): checks the ML-DSA-65 signature of the REALITY certificate.
 - [`xhttp-opts.h2-flow`](/config/proxies/xhttp/): the HTTP/2 flow governor of XHTTP.
+- [`xdrive-opts`](/config/proxies/xdrive/): the XDRIVE transport with `network: xdrive`. Needs `encryption` and `mux.cool`, and takes no `flow`.
 - [`mux.cool`](/config/proxies/mux-cool/) and [`udp-443`](/config/proxies/udp-443/): see [common fields](/config/proxies/).

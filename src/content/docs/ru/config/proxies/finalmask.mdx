@@ -31,8 +31,8 @@ import { Aside } from '@astrojs/starlight/components';
 ## Где работает
 
 - Только у прокси **`vless`** и **`trojan`** и у одноимённых входящих (listeners).
-- **TCP-маски** оборачивают соединение под TLS, REALITY, ShadowTLS, Restls и JLS и работают со всеми транспортами: `tcp`, `ws`, `grpc`, `h2`, `http`, `xhttp` (включая `download-settings`).
-- **UDP-маски** оборачивают сокет **VLESS поверх mKCP** (`network: mkcp`, см. [ниже](#vless-поверх-mkcp)) и QUIC-сокет **xhttp по HTTP/3** (`network: xhttp`, `alpn: [h3]`). На других транспортах они не используются, и такая конфигурация отклоняется с ошибкой.
+- **TCP-маски** оборачивают соединение под TLS, REALITY, ShadowTLS, Restls и JLS и работают со всеми транспортами: `tcp`, `ws`, `grpc`, `h2`, `http`, `xhttp` (включая `download-settings`). На [XDRIVE](/ru/config/proxies/xdrive/) они оборачивают соединения с хранилищем.
+- **UDP-маски** оборачивают сокет **VLESS поверх mKCP** (`network: mkcp`, см. [ниже](#vless-поверх-mkcp)) и QUIC-сокет **xhttp** и **XDRIVE по HTTP/3** (`network: xhttp` или `network: xdrive`, `alpn: [h3]`). На других транспортах они не используются, и такая конфигурация отклоняется с ошибкой.
 - У входящих (listeners) поддерживаются только TCP-маски: у них нет сокета HTTP/3 или mKCP.
 - Если блока `finalmask` нет — прокси работает как обычно, без каких-либо обёрток.
 
@@ -213,7 +213,7 @@ finalmask:
 
 ## Маски UDP
 
-Работают для [VLESS поверх mKCP](#vless-поверх-mkcp) (`network: mkcp`) и для `xhttp` по HTTP/3 (`alpn: [h3]`).
+Работают для [VLESS поверх mKCP](#vless-поверх-mkcp) (`network: mkcp`), а также для `xhttp` и [XDRIVE](/ru/config/proxies/xdrive/) по HTTP/3 (`alpn: [h3]`). До Google Drive по h3 работает только `noise`.
 
 ### `noise`
 
