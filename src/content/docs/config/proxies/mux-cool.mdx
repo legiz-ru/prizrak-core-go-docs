@@ -34,14 +34,19 @@ The proxy-level [`udp-443: reject`](/config/proxies/udp-443/) is checked before 
 
 To enable mux.cool for Remnawave subscription users, use the Remnawave host mapper; see [mux.cool via the host mapper](/remnawave/mux-cool/).
 
+## Server
+
+When the target of a stream reads slower than its data comes, the server stops reading the connection until the target takes the data, as Xray does: a TCP stream must not lose data. Meanwhile the other streams of that connection wait too. A target that takes nothing for 300 s (`connIdle` of Xray's default policy) ends its stream with an error, and the connection goes on. Streams with no data waiting for them have no such limit.
+
 ## XDRIVE
 
 An [XDRIVE](/config/proxies/xdrive/) proxy does not work without mux.cool. One mux.cool connection is one XDRIVE session, with its own objects on the storage and its own polling, so as many streams as possible have to share it.
 
 - `enabled: true` is required, and `xudp-proxy-udp443: skip` is refused. Without that the config does not load.
 - `max-concurrency` below 128, the default 8 included, is raised to 128. A higher value stays.
-- `max-connections` keeps its default of 128: after that many streams over its life the session is replaced with a new one.
+- `max-connections` below 1024, the default 128 included, is raised to 1024: that is how many streams Xray-core lets one mux connection carry. A higher value stays. After that many streams over its life the session is replaced with a new one.
 - `max-carriers` limits how many sessions are open at once, which also limits the requests to the storage.
+- A new session gets up to 60 s to start, and the streams that need it wait for it just as long, not the 5 s of an ordinary dial.
 
 :::note[VLESS server]
 Up to v1.19.33-r8 a VLESS inbound served mux.cool with the simpler server of sing-vmess; only VMess used this implementation. Later releases use it for VLESS too, with its XUDP handling and limits.

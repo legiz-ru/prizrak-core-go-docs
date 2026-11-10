@@ -27,7 +27,7 @@ There are four modes, chosen by `service`:
 - On **`vless`** proxies and listeners only.
 - **VLESS Encryption is mandatory.** The client needs `encryption`, the server `decryption`, and neither can be empty or `none`: the storage provider can read every object, and the encryption is what keeps your traffic from it. A pair comes from `mihomo generate vless-mlkem768` or `xray vlessenc`: one string goes to the server, the other to the client.
 - **`flow` is refused**, on the proxy and on the users of a listener.
-- **The client needs [mux.cool](/config/proxies/mux-cool/#xdrive)**: `enabled: true`, and `xudp-proxy-udp443` anything but `skip`. A `max-concurrency` below 128 is raised to 128.
+- **The client needs [mux.cool](/config/proxies/mux-cool/#xdrive)**: `enabled: true`, and `xudp-proxy-udp443` anything but `skip`. As in Xray, a `max-concurrency` below 128 is raised to 128 and a `max-connections` below 1024 to 1024.
 - **`server` and `port` are required by the proxy format but not used by the transport.** Where the requests go is set by the URL of the storage or by [`xdrive-opts.address`](#the-connection-to-the-storage).
 - **`reality-opts`, `shadow-tls-opts`, `restls-opts` and `jls-opts` are refused**: the TLS of such a proxy belongs to the requests to the storage, not to VLESS.
 
@@ -64,12 +64,12 @@ proxies:
 
 ### `xdrive-opts`
 
-A number that is `0` or absent takes the default. "On Drive" means `service: google-drive`.
+A number that is `0` or absent takes the default. Numbers must be from 0 to 4294967295, as Xray reads them: a negative or larger one is a config error. "On Drive" means `service: google-drive`.
 
 | Field | Default | What it does |
 |-------|---------|--------------|
 | `service` | required | `google-drive` (the old spelling `Google Drive` works too), `template`, `s3`, `local` |
-| `remote-folder` | required, except for `template` | Folder id on Drive, a path for `local`, a key prefix for `s3`, `{folder}` in a template |
+| `remote-folder` | required, except for `template` | Folder id on Drive, a path for `local` (inside the home directory or `SAFE_PATHS`, see [local](#local-a-folder)), a key prefix for `s3`, `{folder}` in a template |
 | `secrets` | — | Credentials, see the table of modes. A template reads them as `{secret0}`, `{secret1}`, … |
 | `segment-bytes` | `524288` | Largest object that holds a segment of data. At most 16 MiB, a larger value is cut to it |
 | `flush-interval-ms` | `20`, on Drive `10` | How long the writer gathers data before sending it |
@@ -114,7 +114,7 @@ The Google Drive guide of Xray says the client connects to `settings.address`. T
 
 ### `reuse-settings`
 
-XMUX of the connections to the storage, with the same keys as `xhttp-opts.reuse-settings`. Values are a number or a range `"a-b"`, except `h-keep-alive-period`.
+XMUX of the connections to the storage, with the same keys as `xhttp-opts.reuse-settings`. Values are a number or a range `"a-b"` from 0 to 2147483647, except `h-keep-alive-period`; a number out of that range is a config error.
 
 | Field | What it does |
 |-------|--------------|
@@ -153,9 +153,10 @@ With wrong credentials the core writes `Google rejected the OAuth credentials` t
 
 For web browsing set `eager-window-ms: 10000`, as in the example above, on both sides. Polling then stays fast through the pauses inside a page load. Leave the other numbers and `reuse-settings` at their defaults.
 
-- A mux.cool connection is one XDRIVE session. A session on Drive holds a ring of 64 slot files per direction, about 130 requests just to open, and polls on its own. That is why mux.cool is mandatory.
+- A mux.cool connection is one XDRIVE session. A session on Drive holds a ring of 64 slot files per direction, about 130 requests just to open, and polls on its own. That is why mux.cool is mandatory, and why a session carries at least 1024 streams before mux.cool replaces it.
 - Google limits requests per minute per project. An answer `403` with `Requests per minute` means that limit: the transport retries with a backoff, so a short burst only slows it down. If it keeps happening, remove `eager-window-ms`, set `max-poll-interval-ms: 500` and make sure nobody else uses the project.
 - On one live connection the first session took about 6 s, later requests 2–3 s, and downloads ran at about 0.9 MB/s over h2 and 1.2 MB/s over h3. A `url-test` needs more than the default `timeout: 5000` to survive the first session: raise it, for example to `15000`.
+- A new session has up to 60 s to start. Connections that come in while it starts wait for it just as long, not the 5 s of an ordinary dial, so the first page after a long pause no longer loads only in part. A `url-test` still fails when the session takes longer than its `timeout`.
 - Server and client log in to the same Drive, so a compromised client exposes the account. Keep configs with these secrets private.
 
 ---
@@ -304,8 +305,16 @@ proxies:
       enabled: true
     xdrive-opts:
       service: local
-      remote-folder: /var/lib/xdrive
+      remote-folder: xdrive            # <home directory>/xdrive
 ```
+
+`remote-folder` is held to the same paths as the other files of mihomo, because it can come from a subscription as easily as from your config:
+
+- A relative path is counted from the home directory of the core (the `-d` flag).
+- The resulting path must lie inside the home directory or inside one of the paths of the `SAFE_PATHS` environment variable. `SAFE_PATHS` is written like `PATH`: paths separated by `:`, on Windows by `;`.
+- Any other path is an error: for a proxy when the config loads, for a listener when it starts. The error says `path is not subpath of home directory or SAFE_PATHS`.
+
+So a folder such as `/var/lib/xdrive` works only when the core runs with `SAFE_PATHS=/var/lib/xdrive` or with a parent of it there. The listener checks its `remote-folder` the same way.
 
 ---
 
@@ -340,6 +349,7 @@ listeners:
 - With `xdrive-config` set, the other transport and TLS options of the listener are not read: `ws-path`, `xhttp-config`, `grpc-service-name`, `certificate`, `reality-config` and the like.
 - `alpn: [h3]` is not supported on a listener and fails it at start.
 - `finalmask.tcp` wraps the connections to the storage. `finalmask.udp` is refused.
+- With `service: local`, `remote-folder` must be inside the home directory or `SAFE_PATHS`, as on the client, see [local](#local-a-folder).
 - The listener accepts sessions from Xray clients and from Prizrak-Core.
 
 ---
@@ -368,6 +378,8 @@ vless://<uuid>@<server>:<port>?encryption=<encryption>&type=xdrive&service=googl
 ```
 
 `mux.cool` is switched on by itself. `extra` holds any field of `xdriveSettings`; `address` and `port` cannot be set from a link.
+
+The query of such a link carries the secrets of the storage. When a `vless` or `vmess` link cannot be converted, the warning in the log shows it without the part before `@` and the parameters after `?`, so neither the uuid nor the secrets get into the log.
 
 ---
 
