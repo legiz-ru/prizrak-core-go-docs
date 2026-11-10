@@ -132,7 +132,7 @@ openssl x509 -noout -fingerprint -sha256 -inform pem -in yourcert.pem
 :::::
 
 :::tip[👻 prizrak-utls]
-Prizrak-Core использует свой форк uTLS с актуальными отпечатками (Chrome 155, Firefox 148, Safari 26.3) и добавляет `randomized`, `chrome120`, `firefox120`, `safari16`, `chrome_psk*`, `chrome_pq*` и `none`. См. [prizrak-utls](/ru/config/proxies/prizrak-utls/).
+Prizrak-Core использует свой форк uTLS с актуальными отпечатками (Chrome 155, Firefox 156, Safari 26.3) и добавляет `randomized`, `chrome120`, `firefox120`, `safari16`, `chrome_psk*`, `chrome_pq*` и `none`. См. [prizrak-utls](/ru/config/proxies/prizrak-utls/).
 :::
 
 ## reality-opts
