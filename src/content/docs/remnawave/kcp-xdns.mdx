@@ -98,7 +98,7 @@ proxies:
 Both forms were checked with Prizrak-Core v1.19.33-r10: in the Xray JSON form, as a `vless://…?type=kcp&mtu=77&tti=100&fm=…` link and as the YAML the mapper builds. Pages load in about a second; the speed is tens of KB/s, enough for messengers in text mode. While data flows, the core holds UDP sockets to the resolvers only, nothing goes to the server directly.
 
 <Aside type="caution">
-Remnawave (3.4.7 and the `dev` branch at the time of writing) drops `kcp` hosts from the Mihomo subscription **before** the mapper runs, so such a host does not reach Prizrak-Box at all. It gets in only with the backend change [remnawave/backend#233](https://github.com/remnawave/backend/pull/233) (still open), which builds `kcp` hosts that have a Mihomo mapper. Until then Prizrak-Core receives such a node only from links (User-Agent `Prizrak-Core/…`) or from an Xray JSON subscription, which it converts by itself.
+Remnawave (3.4.7 and the `dev` branch at the time of writing) drops `kcp` hosts from the Mihomo subscription **before** the mapper runs, so such a host does not reach Prizrak-Box at all. It gets in only with the backend change [remnawave/backend#233](https://github.com/remnawave/backend/pull/233) (still open), which builds `kcp` hosts that have a Mihomo mapper. Until then Prizrak-Core receives such a node only from links or from an Xray JSON subscription, which it converts by itself. To get links, set the provider's `header` to a `User-Agent` that Remnawave answers with base64 links, for example `Prizrak-Core/1.0` (with the default response rules any unknown client gets links). The core's default `clash.meta/…` gets the Mihomo subscription.
 </Aside>
 
 <Aside type="note">

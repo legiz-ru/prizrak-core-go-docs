@@ -163,7 +163,7 @@ REALITY в Prizrak-Core совместим с актуальным Xray-core, в
 
 ### reality-opts.password 👻
 
-Алиас `public-key` (имя из Xray); если заданы оба, действует `password`.
+Имя публичного ключа в Xray: если задан, ядро берёт его вместо `public-key`. Ключ `public-key` при этом всё равно обязателен, его можно оставить пустым; с одним `password` прокси не создаётся, ошибка `'reality-opts' has unset fields: public-key`.
 
 ### reality-opts.mldsa65-verify 👻
 

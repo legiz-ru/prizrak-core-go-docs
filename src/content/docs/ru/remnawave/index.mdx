@@ -9,7 +9,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 - Меняются только те форматы подписки, чьи списки заполнены. Если заполнен только `mihomo`, подписки Xray JSON, base64 и sing-box остаются как были.
 - Клиенты на обычном mihomo незнакомые ключи игнорируют и работают как раньше, кроме случаев, оговорённых на страницах (finalmask, mKCP и XDRIVE: без них клиент до сервера не достучится).
-- Prizrak-Box присылает `User-Agent`, начинающийся с `prizrak-box/`, отдельное ядро — `Prizrak-Core/…`. Оба получают подписку Mihomo с применённым маппером. Заголовки, шаблоны и шифрование age для Prizrak-Box описаны в [документации Prizrak-Box](https://docs.prizrak.app/ru/for-devs/remnawave-integration/).
+- Prizrak-Box присылает `User-Agent`, начинающийся с `prizrak-box/`, отдельное ядро — `clash.meta/<версия ядра>`, если его не поменяли через [`global-ua`](/ru/config/general/#настройка-глобального-ua) или `header` провайдера. По стандартным правилам ответа Remnawave оба получают подписку Mihomo с применённым маппером. Заголовки, шаблоны и шифрование age для Prizrak-Box описаны в [документации Prizrak-Box](https://docs.prizrak.app/ru/for-devs/remnawave-integration/).
 
 ## Как настроить маппер
 

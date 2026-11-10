@@ -8,7 +8,7 @@ REALITY is aligned with current Xray-core. The implementation comes from [MetaCu
 - **ML-DSA-65.** Verification of the post-quantum signature on the REALITY certificate, as in Xray. The client sets the public key `mldsa65-verify`, the server sets `mldsa65-seed`.
 - **ML-KEM as in Xray.** REALITY always keeps the fingerprint of the selected browser, including `X25519MLKEM768`. The `support-x25519mlkem768` option is no longer needed and is ignored. For older servers, set an older fingerprint explicitly, for example `chrome120`.
 - **New client options** (named as in Xray):
-  - `password`: alias of `public-key`;
+  - `password`: the Xray name of the public key. If set, it is used instead of `public-key`, but the `public-key` key must still be present (it may be empty): with `password` alone the proxy fails with `'reality-opts' has unset fields: public-key`;
   - `spider-x`;
   - `show`;
   - `master-key-log`.

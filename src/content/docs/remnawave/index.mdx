@@ -9,7 +9,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 - Only the subscription formats whose lists you fill change. With only the `mihomo` list filled, Xray JSON, base64 and sing-box subscriptions stay as they were.
 - Clients on plain mihomo ignore keys they do not know and keep working, except where a page says otherwise (finalmask, mKCP and XDRIVE: a client without them cannot reach the server).
-- Prizrak-Box sends a `User-Agent` that starts with `prizrak-box/`, and the standalone core sends `Prizrak-Core/…`; both get the Mihomo subscription with the mapper applied. Headers, templates and age encryption for Prizrak-Box are described in the [Prizrak-Box docs](https://docs.prizrak.app/for-devs/remnawave-integration/).
+- Prizrak-Box sends a `User-Agent` that starts with `prizrak-box/`, and the standalone core sends `clash.meta/<core version>` unless [`global-ua`](/config/general/#custom-global-ua) or the provider's `header` says otherwise. Remnawave's default response rules give both the Mihomo subscription with the mapper applied. Headers, templates and age encryption for Prizrak-Box are described in the [Prizrak-Box docs](https://docs.prizrak.app/for-devs/remnawave-integration/).
 
 ## Set up the mapper
 

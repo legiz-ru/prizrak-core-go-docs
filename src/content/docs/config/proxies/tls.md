@@ -164,7 +164,7 @@ Support for X25519-MLKEM768 key exchange.
 
 ### reality-opts.password 👻
 
-Alias of `public-key` (the name Xray uses); if both are set, `password` wins.
+The Xray name of the public key: if set, it is used instead of `public-key`. The `public-key` key is still required and may be left empty; with `password` alone the proxy fails with `'reality-opts' has unset fields: public-key`.
 
 ### reality-opts.mldsa65-verify 👻
 
