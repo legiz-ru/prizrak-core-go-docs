@@ -74,6 +74,8 @@ Xray option mapping:
 
 The XHTTP client in h2 mode dials one HTTP/2 connection to a server at a time. Before, requests that started together, as when a page opens, each opened a connection of their own: 16 requests on a fresh connection made 13 connections, and 16 while a TLS handshake hung (as when a censor drops the flow after the ClientHello). A burst of handshakes is a pattern DPI looks for, and it went past `reuse-settings.max-connections`. Now such requests wait for one dial and share its connection; another connection opens only when the server's stream limit is reached. Nothing to configure. It is the same fix as `-tags http2legacy` in Xray builds ([XTLS/Xray-core#6797](https://github.com/XTLS/Xray-core/issues/6797)).
 
+A dial that hangs, such as a handshake blocked after the ClientHello, is given up after 5 seconds, and at once when no request waits for it any more. So once a block is lifted, new sessions connect right away instead of waiting for the old dial. The dial sharing follows [mihomo-proxy-ros](https://github.com/Medium1992/mihomo-proxy-ros) by Medium1992.
+
 In `packet-up` mode an upload is also sent again on a new connection when the server or a CDN retires the old one with GOAWAY; before, the upload failed and the connection dropped (as Xray since [XTLS/Xray-core#6632](https://github.com/XTLS/Xray-core/pull/6632)).
 
 ## OPTIONS uploads
