@@ -5,9 +5,9 @@ description: "Форк uTLS в Prizrak-Core: свежие отпечатки Chr
 
 uTLS — библиотека, которая подделывает TLS-отпечаток (ClientHello) под настоящий браузер. От неё зависит, каким браузером выглядит подключение для `client-fingerprint` и REALITY.
 
-mihomo использует [metacubex/utls](https://github.com/metacubex/utls) v1.8.8. Prizrak-Core использует свой форк [legiz-ru/prizrak-utls](https://github.com/legiz-ru/prizrak-utls) (ветка `v1.9.0-mod-meta-mldsa-chr155`). Он состоит из таких частей:
+mihomo использует [metacubex/utls](https://github.com/metacubex/utls) v1.9.0-alpha.1 (с mihomo v1.19.34, раньше v1.8.8). Prizrak-Core использует свой форк [legiz-ru/prizrak-utls](https://github.com/legiz-ru/prizrak-utls) (ветка `v1.9.0-mod-meta-mldsa-chr155`). Он состоит из таких частей:
 
-1. **Основа** — ветка `v1.9.0-mod-meta` от metacubex. Это более новая линия, чем v1.8.8 в mihomo, со всеми доработками metacubex.
+1. **Основа** — ветка `v1.9.0-mod-meta` от metacubex, из которой взята и v1.9.0-alpha.1 в mihomo, со всеми доработками metacubex.
 2. **Свежий апстрим [refraction-networking/utls](https://github.com/refraction-networking/utls)**: синхронизация с `crypto/tls` из Go 1.27.1, отпечаток Chrome 155, исправления распаковки сжатых сертификатов, исправления GREASE и PSK, обмен ключами MLKEM1024. Форк при этом по-прежнему собирается на Go 1.20.
 3. **REALITY ML-DSA-65** — см. раздел [REALITY](/ru/config/proxies/reality/).
 4. **Ключи всех key share**: хранятся ключи каждого классического key share, и сервер может выбрать любой из них (бэкпорт [refraction-networking/utls#416](https://github.com/refraction-networking/utls/pull/416), как в [Jolymmiles/utls](https://github.com/Jolymmiles/utls)).
@@ -15,14 +15,14 @@ mihomo использует [metacubex/utls](https://github.com/metacubex/utls) 
 
 ## Какой браузер означает `client-fingerprint`
 
-| `client-fingerprint` | mihomo | Prizrak-Core |
-|----------------------|--------|--------------|
-| `chrome` | Chrome 133 | **Chrome 155** |
-| `firefox` | Firefox 120 | **Firefox 156** |
-| `safari` | Safari 16.0 | **Safari 26.3** |
+| `client-fingerprint` | mihomo v1.19.34 | Prizrak-Core |
+|----------------------|-----------------|--------------|
+| `chrome` | Chrome 133 | **Chrome 155**, на 22 версии новее |
+| `firefox` | Firefox 148 | **Firefox 156**, на 8 версий новее |
+| `safari` | Safari 26.3 | Safari 26.3 |
 | `ios`, `android`, `edge`, `360`, `qq` | без изменений | без изменений |
 
-В Prizrak-Core отпечатки `firefox` и `safari` тоже содержат постквантовый обмен ключами `X25519MLKEM768`, как у настоящих браузеров этих версий. В mihomo он есть только у `chrome`.
+`firefox` в mihomo — это собственный отпечаток Firefox 148 из uTLS, а в Prizrak-Core — Firefox 156, снятый с самого браузера (см. [ниже](#firefox-156)). В обоих ядрах `chrome`, `firefox` и `safari` содержат постквантовый обмен ключами `X25519MLKEM768`, как у настоящих браузеров этих версий (в mihomo до v1.19.34 — только `chrome`).
 
 :::note
 Если сервер не понимает новые отпечатки, можно явно указать старый: `chrome120`, `firefox120` или `safari16`.

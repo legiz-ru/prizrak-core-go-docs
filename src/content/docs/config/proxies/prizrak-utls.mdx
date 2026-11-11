@@ -5,9 +5,9 @@ description: "The uTLS fork in Prizrak-Core: up-to-date Chrome 155, Firefox 156,
 
 uTLS is the library that makes the TLS fingerprint (ClientHello) look like a real browser. It decides which browser a connection looks like for `client-fingerprint` and REALITY.
 
-mihomo uses [metacubex/utls](https://github.com/metacubex/utls) v1.8.8. Prizrak-Core uses its own fork [legiz-ru/prizrak-utls](https://github.com/legiz-ru/prizrak-utls) (branch `v1.9.0-mod-meta-mldsa-chr155`). It consists of these parts:
+mihomo uses [metacubex/utls](https://github.com/metacubex/utls) v1.9.0-alpha.1 (since mihomo v1.19.34; v1.8.8 before). Prizrak-Core uses its own fork [legiz-ru/prizrak-utls](https://github.com/legiz-ru/prizrak-utls) (branch `v1.9.0-mod-meta-mldsa-chr155`). It consists of these parts:
 
-1. **Base**: the metacubex `v1.9.0-mod-meta` branch. It is a newer line than v1.8.8 in mihomo and carries all metacubex changes.
+1. **Base**: the metacubex `v1.9.0-mod-meta` branch, the line v1.9.0-alpha.1 of mihomo comes from, with all metacubex changes.
 2. **Up-to-date upstream [refraction-networking/utls](https://github.com/refraction-networking/utls)**: sync with `crypto/tls` from Go 1.27.1, the Chrome 155 fingerprint, fixes for compressed certificate decompression, GREASE and PSK fixes, MLKEM1024 key exchange. The fork still builds with Go 1.20.
 3. **REALITY ML-DSA-65**: see [REALITY](/config/proxies/reality/).
 4. **Key shares after the first**: the keys of every classical key share are kept, so a server may select any of them (backport of [refraction-networking/utls#416](https://github.com/refraction-networking/utls/pull/416), as in [Jolymmiles/utls](https://github.com/Jolymmiles/utls)).
@@ -15,14 +15,14 @@ mihomo uses [metacubex/utls](https://github.com/metacubex/utls) v1.8.8. Prizrak-
 
 ## Which browser `client-fingerprint` means
 
-| `client-fingerprint` | mihomo | Prizrak-Core |
-|----------------------|--------|--------------|
-| `chrome` | Chrome 133 | **Chrome 155** |
-| `firefox` | Firefox 120 | **Firefox 156** |
-| `safari` | Safari 16.0 | **Safari 26.3** |
+| `client-fingerprint` | mihomo v1.19.34 | Prizrak-Core |
+|----------------------|-----------------|--------------|
+| `chrome` | Chrome 133 | **Chrome 155**, 22 versions newer |
+| `firefox` | Firefox 148 | **Firefox 156**, 8 versions newer |
+| `safari` | Safari 26.3 | Safari 26.3 |
 | `ios`, `android`, `edge`, `360`, `qq` | unchanged | unchanged |
 
-In Prizrak-Core the `firefox` and `safari` fingerprints also carry the post-quantum `X25519MLKEM768` key exchange, as real browsers of these versions do. In mihomo only `chrome` has it.
+`firefox` in mihomo is uTLS's own Firefox 148 parrot; in Prizrak-Core it is Firefox 156 as captured from the browser (see [below](#firefox-156)). In both cores `chrome`, `firefox` and `safari` carry the post-quantum `X25519MLKEM768` key exchange, as real browsers of these versions do (mihomo before v1.19.34: only `chrome`).
 
 :::note
 If a server does not understand the new fingerprints, pick an older one explicitly: `chrome120`, `firefox120` or `safari16`.
