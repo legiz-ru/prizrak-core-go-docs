@@ -81,8 +81,12 @@ proxies:
 | `texturesValue`, `texturesSignature` | `textures-value`, `textures-signature` |
 | `remoteIPs`, `remotePorts` | `remote-ips`, `remote-ports` |
 | `lenLimit`, `labelLimit`, `extraPoll` | `len-limit`, `label-limit`, `extra-poll` |
+| `tlsConfig`, `quicConfig` (резолверы xdns) | `tls-config`, `quic-config` |
+| `serverName`, `pinnedPeerCertSha256`, `verifyPeerCertByName`, `echConfigList` | `server-name`, `pinned-peer-cert-sha256`, `verify-peer-cert-by-name`, `ech-config-list` |
+| `bbrProfile`, `brutalUp`, `maxIdleTimeout`, `keepAlivePeriod`, `disablePathMTUDiscovery` | `bbr-profile`, `brutal-up`, `max-idle-timeout`, `keep-alive-period`, `disable-path-mtu-discovery` |
+| `initStreamReceiveWindow`, `maxStreamReceiveWindow`, `initConnectionReceiveWindow`, `maxConnectionReceiveWindow` | `init-stream-receive-window`, `max-stream-receive-window`, `init-connection-receive-window`, `max-connection-receive-window` |
 
-Остальные ключи (`packets`, `length`, `delay`, `lengths`, `delays`, `clients`, `servers`, `errors`, `client`, `server`, `mode`, `capture`, `reuse`, `transform`, `password`, `ascii`, `hostname`, `profiles`, `reset`, `noise`, `interval`, `domains`, `resolvers`, `names`, `types`, `edns0`, `addrs`, `dgram`, `ips`) совпадают.
+Остальные ключи (`packets`, `length`, `delay`, `lengths`, `delays`, `clients`, `servers`, `errors`, `client`, `server`, `mode`, `capture`, `reuse`, `transform`, `password`, `ascii`, `hostname`, `profiles`, `reset`, `noise`, `interval`, `domains`, `resolvers`, `names`, `types`, `edns0`, `addrs`, `worker`, `alpn`, `fingerprint`, `congestion`, `dgram`, `ips`) совпадают.
 
 ### Пример из Xray и его эквивалент
 
@@ -293,6 +297,54 @@ finalmask:
 ```
 
 Ёмкость ответа зависит от типа записи: с `edns0: 4096` TXT вмещает ~3800 байт, AAAA и CNAME — около 2000, A — не больше 764 байт. Для QUIC используйте TXT.
+
+Имя зоны можно писать с точкой в конце и в Unicode: `t.example.com.` — то же, что `t.example.com`, а `тест.рф` уходит на провод как `xn--e1aybc.xn--p1ai`, имя, на которое делегирована зона. Пустая метка (`a..b`) или метка длиннее 63 байт — ошибка при загрузке конфига, как в Xray-core.
+
+#### Резолверы: UDP, TCP и DoH
+
+Адрес резолвера — `udp://host[:port]` (можно без схемы), `tcp://host[:port]` (порт 53 по умолчанию) или URL сервера DNS-over-HTTPS, `https://host[:port]/path`, как в Xray-core v26.11.9. Остальные ключи записи резолвера относятся ко всем её `addrs`.
+
+```yaml
+- type: xdns
+  domains:
+    - names: ["t.example.com"]
+      edns0: 4096
+  resolvers:
+    - addrs: ["https://dns.example/dns-query"]
+      worker: 32                         # запросов одновременно (tcp и https)
+      tls-config:
+        server-name: front.example       # SNI; HTTP-запрос по-прежнему к dns.example
+        # alpn: [h2, http/1.1]           # по умолчанию; [h3] — HTTP/3
+        # fingerprint: chrome            # по умолчанию; unsafe — TLS из Go
+        # pinned-peer-cert-sha256: "<hex sha256>"
+        # verify-peer-cert-by-name: dns.example
+    - addrs: ["https://1.1.1.1/dns-query"]
+      tls-config:
+        alpn: [h3]
+      quic-config:
+        congestion: bbr                  # reno (по умолчанию), bbr, force-brutal
+        # bbr-profile: standard
+    - addrs: ["tcp://8.8.8.8"]
+      worker: 4
+```
+
+| Ключ | По умолчанию | Что делает |
+|------|--------------|------------|
+| `worker` | `32` | Сколько запросов резолвер `tcp` или `https` держит одновременно. По TCP у каждого своё соединение: оно открывается при первой надобности и остаётся для следующего запроса, так что резолвер `tcp` может держать до 32 соединений, как в Xray-core. Публичному резолверу бережнее меньшее значение, например `4`. Для `udp` не используется |
+| `tls-config.server-name` | хост URL | SNI. Если он отличается от хоста URL, это domain fronting: TLS идёт на это имя, а HTTP-запрос называет хост URL |
+| `tls-config.alpn` | `[h2, http/1.1]` | HTTP/2 или HTTP/1.1, как выберет сервер; ровно `[h3]` — запросы по HTTP/3. Hello uTLS предлагает свой ALPN, как и в Xray-core, поэтому по TCP список действует только с `fingerprint: unsafe` |
+| `tls-config.fingerprint` | `chrome` | Client Hello: отпечаток uTLS по именам `client-fingerprint` или `unsafe` — TLS из Go. Это не пин сертификата, пин — `pinned-peer-cert-sha256`. HTTP/3 всегда идёт на TLS из Go |
+| `tls-config.pinned-peer-cert-sha256` | — | Hex SHA-256 сертификата из цепочки, списком или через запятую. Закреплённый лист принимается сразу, закреплённый CA проверяет лист |
+| `tls-config.verify-peer-cert-by-name` | — | Имена, по которым проверяется сертификат вместо `server-name` |
+| `tls-config.ech-config-list` | — | ECHConfigList в base64 |
+| `quic-config.congestion` | `reno` | `reno`, `bbr` (с `bbr-profile`: `conservative`, `standard`, `aggressive`) или `force-brutal` (с `brutal-up`, например `"50 mbps"`, единицы с шагом 1000) |
+| `quic-config.*` | как в quic-go | `init-stream-receive-window`, `max-stream-receive-window`, `init-connection-receive-window`, `max-connection-receive-window` (не меньше 16384), `max-idle-timeout` (4–120 с), `keep-alive-period` (2–60 с), `disable-path-mtu-discovery` |
+
+- Запрос DoH — POST с `application/dns-message` без User-Agent. Ответ `429` с `Retry-After` приостанавливает резолвер, пока срок не истечёт.
+- Резолвер `tcp` или `https`, чьи соединения раз за разом не проходят (сервер недоступен, TLS или пин не сходится), тоже встаёт на паузу: 1 с, удваиваясь до 30 с; запросы за это время отбрасываются. Xray-core в таком случае заново дозванивается на каждый запрос.
+- Без `tls-config` действуют значения по умолчанию из таблицы. `allow-insecure` не принимается, как и в Xray-core.
+- Резолвер HTTP/2 держит одно соединение на все свои запросы, резолвер HTTP/1.1 открывает по соединению на воркер. Редиректы не выполняются.
+- В отличие от Xray-core, xdns поверх HTTP/3 не подстраивает рукопожатие QUIC под Chrome: `disable-chrome-parrot` и `disable-gso` принимаются, но ничего не меняют.
 
 #### Первый xdns: компактная запись
 

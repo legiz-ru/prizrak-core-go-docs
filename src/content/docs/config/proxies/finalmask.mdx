@@ -81,8 +81,12 @@ proxies:
 | `texturesValue`, `texturesSignature` | `textures-value`, `textures-signature` |
 | `remoteIPs`, `remotePorts` | `remote-ips`, `remote-ports` |
 | `lenLimit`, `labelLimit`, `extraPoll` | `len-limit`, `label-limit`, `extra-poll` |
+| `tlsConfig`, `quicConfig` (xdns resolvers) | `tls-config`, `quic-config` |
+| `serverName`, `pinnedPeerCertSha256`, `verifyPeerCertByName`, `echConfigList` | `server-name`, `pinned-peer-cert-sha256`, `verify-peer-cert-by-name`, `ech-config-list` |
+| `bbrProfile`, `brutalUp`, `maxIdleTimeout`, `keepAlivePeriod`, `disablePathMTUDiscovery` | `bbr-profile`, `brutal-up`, `max-idle-timeout`, `keep-alive-period`, `disable-path-mtu-discovery` |
+| `initStreamReceiveWindow`, `maxStreamReceiveWindow`, `initConnectionReceiveWindow`, `maxConnectionReceiveWindow` | `init-stream-receive-window`, `max-stream-receive-window`, `init-connection-receive-window`, `max-connection-receive-window` |
 
-The other keys (`packets`, `length`, `delay`, `lengths`, `delays`, `clients`, `servers`, `errors`, `client`, `server`, `mode`, `capture`, `reuse`, `transform`, `password`, `ascii`, `hostname`, `profiles`, `reset`, `noise`, `interval`, `domains`, `resolvers`, `names`, `types`, `edns0`, `addrs`, `dgram`, `ips`) are the same.
+The other keys (`packets`, `length`, `delay`, `lengths`, `delays`, `clients`, `servers`, `errors`, `client`, `server`, `mode`, `capture`, `reuse`, `transform`, `password`, `ascii`, `hostname`, `profiles`, `reset`, `noise`, `interval`, `domains`, `resolvers`, `names`, `types`, `edns0`, `addrs`, `worker`, `alpn`, `fingerprint`, `congestion`, `dgram`, `ips`) are the same.
 
 ### An Xray example and its equivalent
 
@@ -293,6 +297,54 @@ Datagrams travel as DNS queries and answers for a zone the server is authoritati
 ```
 
 The answer's capacity depends on the record type: with `edns0: 4096` TXT holds about 3800 bytes, AAAA and CNAME about 2000, A no more than 764. Use TXT for QUIC.
+
+A zone name may end with a dot or be written in Unicode: `t.example.com.` is `t.example.com`, and `тест.рф` goes on the wire as `xn--e1aybc.xn--p1ai`, the name the zone is delegated under. An empty label (`a..b`) or a label longer than 63 bytes fails when the config is loaded, as in Xray-core.
+
+#### Resolvers: UDP, TCP and DoH
+
+A resolver address is `udp://host[:port]` (also without a scheme), `tcp://host[:port]` (port 53 by default) or the URL of a DNS-over-HTTPS server, `https://host[:port]/path`, as in Xray-core v26.11.9. The other keys of a resolver entry apply to all of its `addrs`.
+
+```yaml
+- type: xdns
+  domains:
+    - names: ["t.example.com"]
+      edns0: 4096
+  resolvers:
+    - addrs: ["https://dns.example/dns-query"]
+      worker: 32                         # queries in flight at once (tcp and https)
+      tls-config:
+        server-name: front.example       # SNI; the HTTP request still names dns.example
+        # alpn: [h2, http/1.1]           # default; [h3] for HTTP/3
+        # fingerprint: chrome            # default; unsafe for Go's TLS
+        # pinned-peer-cert-sha256: "<hex sha256>"
+        # verify-peer-cert-by-name: dns.example
+    - addrs: ["https://1.1.1.1/dns-query"]
+      tls-config:
+        alpn: [h3]
+      quic-config:
+        congestion: bbr                  # reno (default), bbr, force-brutal
+        # bbr-profile: standard
+    - addrs: ["tcp://8.8.8.8"]
+      worker: 4
+```
+
+| Key | Default | What it does |
+|-----|---------|--------------|
+| `worker` | `32` | How many queries a `tcp` or `https` resolver has in flight at once. Over TCP each one has its own connection, opened when first needed and kept for the next query, so a `tcp` resolver may hold up to 32 connections, as in Xray-core. For a public resolver a smaller value such as `4` is gentler. `udp` ignores it |
+| `tls-config.server-name` | host of the URL | The SNI. Set apart from the URL's host, it fronts the request: TLS goes to this name, the HTTP request names the URL's host |
+| `tls-config.alpn` | `[h2, http/1.1]` | HTTP/2 or HTTP/1.1, as the server picks; exactly `[h3]` sends the queries over HTTP/3. A uTLS hello offers its own ALPN, as in Xray-core, so over TCP the list matters with `fingerprint: unsafe` only |
+| `tls-config.fingerprint` | `chrome` | The Client Hello: a uTLS fingerprint by the names of `client-fingerprint`, or `unsafe` for Go's TLS. It is not the certificate pin, which is `pinned-peer-cert-sha256`. HTTP/3 always uses Go's TLS |
+| `tls-config.pinned-peer-cert-sha256` | — | Hex SHA-256 of a certificate of the chain, a list or comma-separated. A pinned leaf passes as it is; a pinned CA verifies the leaf |
+| `tls-config.verify-peer-cert-by-name` | — | Names to check the certificate against instead of `server-name` |
+| `tls-config.ech-config-list` | — | ECHConfigList in base64 |
+| `quic-config.congestion` | `reno` | `reno`, `bbr` (with `bbr-profile`: `conservative`, `standard`, `aggressive`) or `force-brutal` (with `brutal-up`, such as `"50 mbps"`, units in steps of 1000) |
+| `quic-config.*` | quic-go's | `init-stream-receive-window`, `max-stream-receive-window`, `init-connection-receive-window`, `max-connection-receive-window` (at least 16384), `max-idle-timeout` (4–120 s), `keep-alive-period` (2–60 s), `disable-path-mtu-discovery` |
+
+- A DoH query is a POST of `application/dns-message` with no User-Agent. A `429` with `Retry-After` pauses the resolver until it passes.
+- A `tcp` or `https` resolver whose connections keep failing (a server that is down, a TLS or pin that never passes) also pauses: 1 s, doubling up to 30 s, and the queries of that time are dropped. Xray-core redials for every query instead.
+- Without `tls-config` the defaults of the table apply. `allow-insecure` is refused, as in Xray-core.
+- An HTTP/2 resolver keeps one connection for all its queries, an HTTP/1.1 one opens a connection per worker. Redirects are not followed.
+- Unlike Xray-core, xdns over HTTP/3 does not shape its QUIC handshake like Chrome's: `disable-chrome-parrot` and `disable-gso` are accepted and change nothing.
 
 #### The first xdns: compact spelling
 

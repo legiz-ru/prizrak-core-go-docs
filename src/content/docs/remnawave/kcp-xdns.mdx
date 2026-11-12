@@ -34,7 +34,13 @@ The mapper builds the whole proxy from the host's own settings: the network, `mk
 {"udp":[{"type":"xdns","settings":{"resolvers":["t.example.com:aaaa+udp://77.88.8.8:53","t.example.com:aaaa+udp://8.8.8.8:53"]}}]}
 ```
 
-The server's `kcp` inbound must have the server side of the same `finalmask` (xdns with your zone).
+- Resolvers over [DoH and TCP](/config/proxies/finalmask/#resolvers-udp-tcp-and-doh) 👻 in the form of Xray-core v26.11.9 (`https://` addresses, `worker`, `tlsConfig`, `quicConfig`) are read from **Final Mask** as they are too, with the full spelling of xdns:
+
+```json
+{"udp":[{"type":"xdns","settings":{"domains":[{"names":["t.example.com"],"edns0":4096}],"resolvers":[{"addrs":["https://dns.example/dns-query"],"tlsConfig":{"serverName":"front.example"}},{"addrs":["tcp://77.88.8.8"],"worker":4}]}}]}
+```
+
+The server's `kcp` inbound must have the server side of the same `finalmask` (xdns with your zone); it does not depend on the resolvers the client uses, the queries reach the server as ordinary DNS.
 
 ## What the client gets
 

@@ -34,7 +34,13 @@ Prizrak-Core передаёт [VLESS поверх mKCP](/ru/config/proxies/final
 {"udp":[{"type":"xdns","settings":{"resolvers":["t.example.com:aaaa+udp://77.88.8.8:53","t.example.com:aaaa+udp://8.8.8.8:53"]}}]}
 ```
 
-Во входящем `kcp` на сервере должна стоять серверная часть того же `finalmask` (xdns с вашей зоной).
+- Резолверы через [DoH и TCP](/ru/config/proxies/finalmask/#резолверы-udp-tcp-и-doh) 👻 в форме Xray-core v26.11.9 (адреса `https://`, `worker`, `tlsConfig`, `quicConfig`) Prizrak-Core тоже читает из **Final Mask** как есть, в полной записи xdns:
+
+```json
+{"udp":[{"type":"xdns","settings":{"domains":[{"names":["t.example.com"],"edns0":4096}],"resolvers":[{"addrs":["https://dns.example/dns-query"],"tlsConfig":{"serverName":"front.example"}},{"addrs":["tcp://77.88.8.8"],"worker":4}]}}]}
+```
+
+Во входящем `kcp` на сервере должна стоять серверная часть того же `finalmask` (xdns с вашей зоной); от резолверов клиента она не зависит, запросы доходят до сервера обычным DNS.
 
 ## Что получит клиент
 
