@@ -84,6 +84,7 @@ proxies:
 | `tlsConfig`, `quicConfig` (резолверы xdns) | `tls-config`, `quic-config` |
 | `serverName`, `pinnedPeerCertSha256`, `verifyPeerCertByName`, `echConfigList` | `server-name`, `pinned-peer-cert-sha256`, `verify-peer-cert-by-name`, `ech-config-list` |
 | `bbrProfile`, `brutalUp`, `maxIdleTimeout`, `keepAlivePeriod`, `disablePathMTUDiscovery` | `bbr-profile`, `brutal-up`, `max-idle-timeout`, `keep-alive-period`, `disable-path-mtu-discovery` |
+| `disableChromeParrot`, `disableGSO` | `disable-chrome-parrot`, `disable-gso` |
 | `initStreamReceiveWindow`, `maxStreamReceiveWindow`, `initConnectionReceiveWindow`, `maxConnectionReceiveWindow` | `init-stream-receive-window`, `max-stream-receive-window`, `init-connection-receive-window`, `max-connection-receive-window` |
 
 Остальные ключи (`packets`, `length`, `delay`, `lengths`, `delays`, `clients`, `servers`, `errors`, `client`, `server`, `mode`, `capture`, `reuse`, `transform`, `password`, `ascii`, `hostname`, `profiles`, `reset`, `noise`, `interval`, `domains`, `resolvers`, `names`, `types`, `edns0`, `addrs`, `worker`, `alpn`, `fingerprint`, `congestion`, `dgram`, `ips`) совпадают.
@@ -321,9 +322,11 @@ finalmask:
     - addrs: ["https://1.1.1.1/dns-query"]
       tls-config:
         alpn: [h3]
+        # fingerprint: firefox           # по HTTP/3 — браузер для рукопожатия QUIC
       quic-config:
         congestion: bbr                  # reno (по умолчанию), bbr, force-brutal
         # bbr-profile: standard
+        # disable-chrome-parrot: true    # собственное рукопожатие QUIC от quic-go
     - addrs: ["tcp://8.8.8.8"]
       worker: 4
 ```
@@ -333,18 +336,19 @@ finalmask:
 | `worker` | `32` | Сколько запросов резолвер `tcp` или `https` держит одновременно. По TCP у каждого своё соединение: оно открывается при первой надобности и остаётся для следующего запроса, так что резолвер `tcp` может держать до 32 соединений, как в Xray-core. Публичному резолверу бережнее меньшее значение, например `4`. Для `udp` не используется |
 | `tls-config.server-name` | хост URL | SNI. Если он отличается от хоста URL, это domain fronting: TLS идёт на это имя, а HTTP-запрос называет хост URL |
 | `tls-config.alpn` | `[h2, http/1.1]` | HTTP/2 или HTTP/1.1, как выберет сервер; ровно `[h3]` — запросы по HTTP/3. Hello uTLS предлагает свой ALPN, как и в Xray-core, поэтому по TCP список действует только с `fingerprint: unsafe` |
-| `tls-config.fingerprint` | `chrome` | Client Hello: отпечаток uTLS по именам `client-fingerprint` или `unsafe` — TLS из Go. Это не пин сертификата, пин — `pinned-peer-cert-sha256`. HTTP/3 всегда идёт на TLS из Go |
+| `tls-config.fingerprint` | `chrome` | Client Hello: отпечаток uTLS по именам `client-fingerprint` или `unsafe` — TLS из Go. Это не пин сертификата, пин — `pinned-peer-cert-sha256`. По HTTP/3 выбирает браузер для [рукопожатия QUIC](/ru/config/proxies/quic-parrot/): `firefox` — Firefox 160, `safari` — Safari (Chrome при `ech-config-list`), любое другое, в том числе `unsafe`, — Chrome |
 | `tls-config.pinned-peer-cert-sha256` | — | Hex SHA-256 сертификата из цепочки, списком или через запятую. Закреплённый лист принимается сразу, закреплённый CA проверяет лист |
 | `tls-config.verify-peer-cert-by-name` | — | Имена, по которым проверяется сертификат вместо `server-name` |
 | `tls-config.ech-config-list` | — | ECHConfigList в base64 |
 | `quic-config.congestion` | `reno` | `reno`, `bbr` (с `bbr-profile`: `conservative`, `standard`, `aggressive`) или `force-brutal` (с `brutal-up`, например `"50 mbps"`, единицы с шагом 1000) |
-| `quic-config.*` | как в quic-go | `init-stream-receive-window`, `max-stream-receive-window`, `init-connection-receive-window`, `max-connection-receive-window` (не меньше 16384), `max-idle-timeout` (4–120 с), `keep-alive-period` (2–60 с), `disable-path-mtu-discovery` |
+| `quic-config.disable-chrome-parrot` | `false` | `true` отправляет собственное рукопожатие QUIC от quic-go вместо браузерного, как `disableChromeParrot` в Xray-core. Без него сертификат DoH-сервера должен быть ECDSA или RSA |
+| `quic-config.*` | как в quic-go | `init-stream-receive-window`, `max-stream-receive-window`, `init-connection-receive-window`, `max-connection-receive-window` (не меньше 16384), `max-idle-timeout` (4–120 с), `keep-alive-period` (2–60 с), `disable-path-mtu-discovery`. При браузерном рукопожатии вместо этих значений действуют окна, лимиты потоков и таймаут простоя браузера |
 
 - Запрос DoH — POST с `application/dns-message` без User-Agent. Ответ `429` с `Retry-After` приостанавливает резолвер, пока срок не истечёт.
-- Резолвер `tcp` или `https`, чьи соединения раз за разом не проходят (сервер недоступен, TLS или пин не сходится), тоже встаёт на паузу: 1 с, удваиваясь до 30 с; запросы за это время отбрасываются. Xray-core в таком случае заново дозванивается на каждый запрос.
+- Резолвер `tcp` или `https`, чьи соединения раз за разом не проходят (сервер недоступен, TLS или пин не сходится), тоже встаёт на паузу: 1 с, удваиваясь до 30 с; запросы за это время отбрасываются, а первое рабочее соединение паузу снимает. Xray-core в таком случае заново дозванивается на каждый запрос. Подключение сдаётся через 15 с.
 - Без `tls-config` действуют значения по умолчанию из таблицы. `allow-insecure` не принимается, как и в Xray-core.
 - Резолвер HTTP/2 держит одно соединение на все свои запросы, резолвер HTTP/1.1 открывает по соединению на воркер. Редиректы не выполняются.
-- В отличие от Xray-core, xdns поверх HTTP/3 не подстраивает рукопожатие QUIC под Chrome: `disable-chrome-parrot` и `disable-gso` принимаются, но ничего не меняют.
+- Поверх HTTP/3 рукопожатие QUIC по умолчанию браузерное, как у DoH-клиента Xray-core: см. [QUIC-рукопожатие браузера](/ru/config/proxies/quic-parrot/). `disable-gso` принимается, но ничего не меняет.
 
 #### Первый xdns: компактная запись
 
