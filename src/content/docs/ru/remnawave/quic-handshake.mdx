@@ -1,6 +1,6 @@
 ---
 title: "QUIC-рукопожатие браузера через маппер хоста"
-description: Отключить браузерное рукопожатие QUIC у хостов Hysteria2 и XHTTP/3 для сервера с сертификатом Ed25519 или выбрать браузер.
+description: Отключить браузерное рукопожатие QUIC у хостов Hysteria2 и XHTTP/3 для сервера с сертификатом Ed25519, выбрать браузер, возобновлять TLS-сессии.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -29,6 +29,20 @@ proxies:
 
 Чтобы выбрать другой браузер, чем даёт отпечаток хоста, задайте ключ напрямую, например `{ "op": "set", "to": "client-fingerprint", "value": "firefox" }`.
 
+## Возобновление сессий
+
+[`enable-session-resumption`](/ru/config/proxies/quic-parrot/#возобновление-сессий-enable-session-resumption) возобновляет TLS-сессии этих соединений QUIC. Инбаунд Xray на ноде должен выдавать тикеты: `"enableSessionResumption": true` в его `tlsSettings`.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "enable-session-resumption", "value": true }
+  ],
+  "base64": []
+}
+```
+
 <Aside type="note">
-Обычный mihomo эти ключи игнорирует и отправляет рукопожатие quic-go. В подписке Xray JSON Prizrak-Core сам читает `finalmask.quicParams.disableChromeParrot`, поэтому список `xrayJson` остаётся пустым.
+Обычный mihomo эти ключи игнорирует и отправляет рукопожатие quic-go. В подписке Xray JSON Prizrak-Core сам читает `finalmask.quicParams.disableChromeParrot` и `tlsSettings.enableSessionResumption`, поэтому список `xrayJson` остаётся пустым.
 </Aside>

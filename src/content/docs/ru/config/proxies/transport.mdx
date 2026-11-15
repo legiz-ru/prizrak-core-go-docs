@@ -152,6 +152,7 @@ proxies:
   servername: xxx.com
   client-fingerprint: chrome
   # disable-chrome-parrot: false # 👻 при alpn: [h3] true отправляет собственное рукопожатие QUIC от quic-go вместо браузерного (по client-fingerprint)
+  # enable-session-resumption: false # 👻 при alpn: [h3] возобновлять TLS-сессии; в 0-RTT идут только SETTINGS HTTP/3
   encryption: ""
   xhttp-opts:
     path: "/"

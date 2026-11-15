@@ -1,6 +1,6 @@
 ---
 title: "👻 QUIC-рукопожатие браузера"
-description: "Hysteria2, VLESS поверх HTTP/3 и xdns DoH поверх HTTP/3 по умолчанию отправляют рукопожатие QUIC браузера Chrome, Firefox или Safari, как Xray-core; disable-chrome-parrot его отключает."
+description: "Hysteria2, VLESS поверх HTTP/3 и xdns DoH поверх HTTP/3 по умолчанию отправляют рукопожатие QUIC браузера Chrome, Firefox или Safari, как Xray-core; disable-chrome-parrot его отключает, enable-session-resumption возобновляет TLS-сессии."
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -66,3 +66,22 @@ import { Aside } from '@astrojs/starlight/components';
 | `tlsSettings.fingerprint` | `client-fingerprint` |
 | `fm` ссылки `vless://` или `hysteria2://` | то же, что `finalmask` выше |
 | `fp` ссылки `hysteria2://` | `client-fingerprint` |
+| `tlsSettings.enableSessionResumption: true` у исходящего hysteria или у исходящего vless поверх xhttp или xdrive с `alpn` ровно `["h3"]` | `enable-session-resumption: true` |
+
+## Возобновление сессий: `enable-session-resumption`
+
+`enable-session-resumption: true` (по умолчанию `false`), как `tlsSettings.enableSessionResumption` в Xray: прокси хранит TLS session tickets сервера и возобновляет по ним следующее соединение QUIC. Работает у `hysteria2` и у `vless` поверх HTTP/3 (xhttp, стороны отправки и загрузки, и xdrive); резолверы xdns сессии не возобновляют.
+
+```yaml
+proxies:
+  - name: hy2
+    type: hysteria2
+    # ...
+    enable-session-resumption: true
+```
+
+- **Возобновлённый hello — браузерный.** При браузерном рукопожатии возобновлённый ClientHello устроен как у этого браузера (GREASE ECH у Firefox растёт вместе с тикетом, как у NSS), а тикет используется один раз, как в браузерах. С `disable-chrome-parrot: true` hello — из Go.
+- **В 0-RTT идут только SETTINGS HTTP/3.** Если тикет разрешает ранние данные, до конца рукопожатия больше ничего не уходит: запрос авторизации Hysteria, проксируемые потоки и запросы XHTTP и XDRIVE его ждут, поэтому повтор пакета 0-RTT ничего не повторяет.
+- **Тикеты по адресу сервера.** Сторона загрузки XHTTP и другой сервер с тем же SNI их не делят.
+- **Сервер должен выдавать тикеты.** Листенер hysteria2 в Prizrak-Core выдаёт (без 0-RTT). Инбаунды Xray выдают их только с `"enableSessionResumption": true` в своих `tlsSettings`. Без тикетов каждое рукопожатие полное, как без параметра.
+- При `log-level: debug` каждое рукопожатие пишет в лог `[QUIC] <proxy>: TLS session resumed: true, 0-RTT accepted: false`.

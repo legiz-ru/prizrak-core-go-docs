@@ -95,7 +95,10 @@ proxies:
     alpn: [h3]
     client-fingerprint: firefox     # рукопожатие QUIC от Firefox
     # disable-chrome-parrot: true   # собственное от quic-go, например для сервера с сертификатом Ed25519
+    # enable-session-resumption: true
 ```
+
+`enable-session-resumption: true` возобновляет TLS-сессии соединений QUIC обеих сторон по тикетам сервера; в 0-RTT идут только SETTINGS HTTP/3, запросы ждут конца рукопожатия. См. [Возобновление сессий](/ru/config/proxies/quic-parrot/#возобновление-сессий-enable-session-resumption).
 
 ## Листенер: регулятор, настройки HTTP/2 и KeepAlive для Mux.Cool
 

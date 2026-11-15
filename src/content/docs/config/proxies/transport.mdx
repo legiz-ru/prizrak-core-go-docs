@@ -152,6 +152,7 @@ proxies:
   servername: xxx.com
   client-fingerprint: chrome
   # disable-chrome-parrot: false # 👻 with alpn: [h3], true sends quic-go's own QUIC handshake instead of the browser's of client-fingerprint
+  # enable-session-resumption: false # 👻 with alpn: [h3], resume TLS sessions; only the HTTP/3 SETTINGS go in 0-RTT
   encryption: ""
   xhttp-opts:
     path: "/"

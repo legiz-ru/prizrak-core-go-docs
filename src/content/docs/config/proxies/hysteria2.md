@@ -42,6 +42,7 @@ proxies:
   # handshake-timeout: 30
   # client-fingerprint: chrome # 👻 the browser of the QUIC handshake: chrome (default), firefox or safari
   # disable-chrome-parrot: false # 👻 true: quic-go's own QUIC handshake instead of the browser's
+  # enable-session-resumption: false # 👻 resume TLS sessions with the server's tickets
   ###Special quic-go options. Do not modify them unless you know what you are doing.###
   # initial-stream-receive-window： 8388608
   # max-stream-receive-window： 8388608
@@ -106,6 +107,10 @@ By default the QUIC handshake of this proxy looks like a browser's, as with the 
 - Port hopping and reconnects keep the shape. With `obfs` the packets are obfuscated and the shape is not visible on the wire.
 
 What each browser sends, what the server needs and how Xray JSON and links map to these keys: [Browser QUIC handshake](/config/proxies/quic-parrot/).
+
+## enable-session-resumption 👻
+
+`true` keeps the TLS session tickets of the server and resumes the next QUIC connection with one, as `tlsSettings.enableSessionResumption` in Xray. Default `false`. The resumed hello is the browser's of `client-fingerprint` (Go's with `disable-chrome-parrot`). With a ticket that allows 0-RTT only the HTTP/3 SETTINGS go early; the auth request and the proxied streams wait for the handshake. See [Session resumption](/config/proxies/quic-parrot/#session-resumption-enable-session-resumption).
 
 :::caution[After the update]
 Up to v1.19.34-r1 hysteria2 sent quic-go's handshake. Now every hysteria2 node parrots a browser without anything in its config changing, as in Xray: a server with an Ed25519 certificate stops working for it, and `initial-stream-receive-window` / `initial-connection-receive-window` no longer apply. Such a server needs an ECDSA or RSA certificate, or `disable-chrome-parrot: true` on the node ([via the Remnawave host mapper](/remnawave/quic-handshake/)).

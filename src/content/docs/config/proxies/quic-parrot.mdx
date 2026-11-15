@@ -1,6 +1,6 @@
 ---
 title: "👻 Browser QUIC handshake"
-description: "Hysteria2, VLESS over HTTP/3 and xdns DoH over HTTP/3 send the QUIC handshake of Chrome, Firefox or Safari by default, as Xray-core does; disable-chrome-parrot turns it off."
+description: "Hysteria2, VLESS over HTTP/3 and xdns DoH over HTTP/3 send the QUIC handshake of Chrome, Firefox or Safari by default, as Xray-core does; disable-chrome-parrot turns it off, enable-session-resumption resumes TLS sessions."
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -66,3 +66,22 @@ Xray's clients parrot the browser by default too, so a converted node gets `disa
 | `tlsSettings.fingerprint` | `client-fingerprint` |
 | `fm` of a `vless://` or `hysteria2://` link | the same as `finalmask` above |
 | `fp` of a `hysteria2://` link | `client-fingerprint` |
+| `tlsSettings.enableSessionResumption: true` of a hysteria outbound, or of a vless outbound over xhttp or xdrive with `alpn` exactly `["h3"]` | `enable-session-resumption: true` |
+
+## Session resumption: `enable-session-resumption`
+
+`enable-session-resumption: true` (default `false`), as `tlsSettings.enableSessionResumption` in Xray: the proxy keeps the TLS session tickets of the server and resumes the next QUIC connection with one. It works on `hysteria2` and on `vless` over HTTP/3 (xhttp, upload and download sides, and xdrive); xdns resolvers do not resume.
+
+```yaml
+proxies:
+  - name: hy2
+    type: hysteria2
+    # ...
+    enable-session-resumption: true
+```
+
+- **The resumed hello is the browser's.** With the browser's handshake the resumed ClientHello has the layout of that browser (Firefox's GREASE ECH grows with the ticket, as NSS's does), and a ticket is used once, as browsers use it. With `disable-chrome-parrot: true` it is Go's.
+- **0-RTT carries only the HTTP/3 SETTINGS.** When a ticket allows early data, nothing else goes before the handshake ends: the Hysteria auth request, the proxied streams and the XHTTP and XDRIVE requests wait for it, so a replayed 0-RTT packet repeats nothing.
+- **Tickets per server address.** XHTTP's download side and another server with the same SNI do not share them.
+- **The server has to issue tickets.** The Prizrak-Core hysteria2 listener does (without 0-RTT). Xray's inbounds issue them only with `"enableSessionResumption": true` in their `tlsSettings`. Without tickets every handshake is a full one, as without the option.
+- With `log-level: debug` every handshake logs `[QUIC] <proxy>: TLS session resumed: true, 0-RTT accepted: false`.

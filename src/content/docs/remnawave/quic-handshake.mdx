@@ -1,6 +1,6 @@
 ---
 title: "Browser QUIC handshake via the host mapper"
-description: Turn off the browser QUIC handshake of Hysteria2 and XHTTP/3 hosts for a server with an Ed25519 certificate, or pick the browser.
+description: Turn off the browser QUIC handshake of Hysteria2 and XHTTP/3 hosts for a server with an Ed25519 certificate, pick the browser, resume TLS sessions.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
@@ -29,6 +29,20 @@ proxies:
 
 To pick another browser than the host's fingerprint gives, set the key itself, for example `{ "op": "set", "to": "client-fingerprint", "value": "firefox" }`.
 
+## Session resumption
+
+[`enable-session-resumption`](/config/proxies/quic-parrot/#session-resumption-enable-session-resumption) resumes the TLS sessions of these QUIC connections. The Xray inbound of the node must issue tickets: `"enableSessionResumption": true` in its `tlsSettings`.
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "enable-session-resumption", "value": true }
+  ],
+  "base64": []
+}
+```
+
 <Aside type="note">
-Plain mihomo ignores these keys and sends quic-go's handshake. In an Xray JSON subscription Prizrak-Core reads `finalmask.quicParams.disableChromeParrot` itself, so the `xrayJson` list stays empty.
+Plain mihomo ignores these keys and sends quic-go's handshake. In an Xray JSON subscription Prizrak-Core reads `finalmask.quicParams.disableChromeParrot` and `tlsSettings.enableSessionResumption` itself, so the `xrayJson` list stays empty.
 </Aside>

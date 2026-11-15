@@ -42,6 +42,7 @@ proxies:
   # handshake-timeout: 30
   # client-fingerprint: chrome # 👻 браузер рукопожатия QUIC: chrome (по умолчанию), firefox или safari
   # disable-chrome-parrot: false # 👻 true: собственное рукопожатие QUIC от quic-go вместо браузерного
+  # enable-session-resumption: false # 👻 возобновлять TLS-сессии по тикетам сервера
   ###специальные настройки quic-go, не изменяйте без необходимости, если не знаете, что делаете###
   # initial-stream-receive-window： 8388608
   # max-stream-receive-window： 8388608
@@ -106,6 +107,10 @@ proxies:
 - Прыжки по портам и переподключения сохраняют форму. С `obfs` пакеты обфусцированы, и форма в сети не видна.
 
 Что отправляет каждый браузер, что нужно серверу и как ключи приходят из Xray JSON и ссылок: [QUIC-рукопожатие браузера](/ru/config/proxies/quic-parrot/).
+
+## enable-session-resumption 👻
+
+`true` хранит TLS session tickets сервера и возобновляет по ним следующее соединение QUIC, как `tlsSettings.enableSessionResumption` в Xray. По умолчанию `false`. Возобновлённый hello — браузерный по `client-fingerprint` (из Go при `disable-chrome-parrot`). Если тикет разрешает 0-RTT, заранее уходят только SETTINGS HTTP/3; запрос авторизации и проксируемые потоки ждут конца рукопожатия. См. [Возобновление сессий](/ru/config/proxies/quic-parrot/#возобновление-сессий-enable-session-resumption).
 
 :::caution[После обновления]
 До v1.19.34-r1 включительно hysteria2 отправлял рукопожатие quic-go. Теперь каждый узел hysteria2 имитирует браузер, хотя в его конфиге ничего не менялось, — так же, как в Xray: сервер с сертификатом Ed25519 для него перестаёт работать, а `initial-stream-receive-window` / `initial-connection-receive-window` больше не действуют. Такому серверу нужен сертификат ECDSA или RSA либо `disable-chrome-parrot: true` на узле ([через маппер хоста Remnawave](/ru/remnawave/quic-handshake/)).

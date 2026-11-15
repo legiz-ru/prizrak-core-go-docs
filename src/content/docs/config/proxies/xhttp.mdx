@@ -95,7 +95,10 @@ proxies:
     alpn: [h3]
     client-fingerprint: firefox     # Firefox's QUIC handshake
     # disable-chrome-parrot: true   # quic-go's own, e.g. for a server with an Ed25519 certificate
+    # enable-session-resumption: true
 ```
+
+`enable-session-resumption: true` resumes the TLS sessions of the QUIC connections of both sides with the server's tickets; only the HTTP/3 SETTINGS go in 0-RTT, the requests wait for the handshake. See [Session resumption](/config/proxies/quic-parrot/#session-resumption-enable-session-resumption).
 
 ## Listener: governor, HTTP/2 settings and Mux.Cool KeepAlive
 

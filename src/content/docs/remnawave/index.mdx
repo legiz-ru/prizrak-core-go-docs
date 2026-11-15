@@ -5,7 +5,7 @@ description: Deliver Prizrak-Core options to clients through the Remnawave host 
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-[Remnawave](https://docs.rw/) builds the Mihomo subscription from the panel's hosts. A plain Mihomo node carries none of the 👻 Prizrak-Core options: mux.cool, finalmask, the REALITY ML-DSA-65 key, the XHTTP flow governor, `udp-443`, `disable-chrome-parrot`. The **host mapper** adds them. It is a list of operations that Remnawave runs on the node generated for a host, after the generator has finished.
+[Remnawave](https://docs.rw/) builds the Mihomo subscription from the panel's hosts. A plain Mihomo node carries none of the 👻 Prizrak-Core options: mux.cool, finalmask, the REALITY ML-DSA-65 key, the XHTTP flow governor, `udp-443`, `disable-chrome-parrot`, `enable-session-resumption`. The **host mapper** adds them. It is a list of operations that Remnawave runs on the node generated for a host, after the generator has finished.
 
 - Only the subscription formats whose lists you fill change. With only the `mihomo` list filled, Xray JSON, base64 and sing-box subscriptions stay as they were.
 - Clients on plain mihomo ignore keys they do not know and keep working, except where a page says otherwise (finalmask, mKCP and XDRIVE: a client without them cannot reach the server).
@@ -56,7 +56,7 @@ Each example is a complete mapper JSON. Several features on one host go into one
 | [mKCP and xdns](/remnawave/kcp-xdns/) | The whole VLESS over mKCP proxy of a `kcp` host, e.g. a DNS tunnel. |
 | [XHTTP h2-flow](/remnawave/xhttp-h2-flow/) | The HTTP/2 flow governor for XHTTP hosts. |
 | [XDRIVE](/remnawave/xdrive/) | Turns the node of a host into a VLESS over XDRIVE proxy. |
-| [Browser QUIC handshake](/remnawave/quic-handshake/) | `disable-chrome-parrot` for Hysteria2 and XHTTP/3 hosts on a server with an Ed25519 certificate. |
+| [Browser QUIC handshake](/remnawave/quic-handshake/) | `disable-chrome-parrot` for Hysteria2 and XHTTP/3 hosts on a server with an Ed25519 certificate, `enable-session-resumption`. |
 | [udp-443](/remnawave/udp-443/) | Reject QUIC (UDP/443) through this node so browsers fall back to TCP. |
 
 A host with several options at once:

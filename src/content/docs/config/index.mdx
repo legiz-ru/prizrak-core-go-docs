@@ -24,7 +24,7 @@ A Prizrak-Core config is a YAML file (`config.yaml` in the working directory). I
 | [XDRIVE](/config/proxies/xdrive/): VLESS through Google Drive, S3, any HTTP storage or a shared folder (Xray-core v26.11.9) | — | ✅ client and server |
 | [`freedom`](/config/proxies/freedom/): DIRECT with TLS fragmentation and socket options (Xray-core `freedom`) | — | ✅ |
 | [`udp-443`](/config/proxies/udp-443/): send QUIC (UDP/443) through a node or a whole provider into REJECT | — | ✅ |
-| [Browser QUIC handshake](/config/proxies/quic-parrot/): Hysteria2, VLESS over HTTP/3 and xdns DoH over HTTP/3 send the handshake of Chrome, Firefox or Safari, as in Xray and the official Hysteria client | quic-go's own | ✅ client |
+| [Browser QUIC handshake](/config/proxies/quic-parrot/): Hysteria2, VLESS over HTTP/3 and xdns DoH over HTTP/3 send the handshake of Chrome, Firefox or Safari, as in Xray and the official Hysteria client; `enable-session-resumption` | quic-go's own | ✅ client |
 | [`fallback-urls`](/config/proxy-providers/fallback-urls/): backup addresses for http proxy and rule providers | — | ✅ |
 
 To deliver these options to clients of a Remnawave panel, see [Remnawave integration](/remnawave/).
