@@ -24,6 +24,7 @@ import { LinkCard, CardGrid } from '@astrojs/starlight/components';
 | [XDRIVE](/ru/config/proxies/xdrive/): VLESS через Google Drive, S3, любое HTTP-хранилище или общую папку (Xray-core v26.11.9) | — | ✅ клиент и сервер |
 | [`freedom`](/ru/config/proxies/freedom/): DIRECT с фрагментацией TLS и параметрами сокета (`freedom` из Xray-core) | — | ✅ |
 | [`udp-443`](/ru/config/proxies/udp-443/): отправлять QUIC (UDP/443) через узел или весь провайдер в REJECT | — | ✅ |
+| [QUIC-рукопожатие браузера](/ru/config/proxies/quic-parrot/): Hysteria2, VLESS поверх HTTP/3 и xdns DoH поверх HTTP/3 отправляют рукопожатие Chrome, Firefox или Safari, как Xray и официальный клиент Hysteria | собственное от quic-go | ✅ клиент |
 | [`fallback-urls`](/ru/config/proxy-providers/fallback-urls/): резервные адреса http-провайдеров прокси и правил | — | ✅ |
 
 Как передать эти параметры клиентам панели Remnawave, см. [Интеграция с Remnawave](/ru/remnawave/).

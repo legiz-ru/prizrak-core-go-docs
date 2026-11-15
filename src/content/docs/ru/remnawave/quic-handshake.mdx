@@ -1,0 +1,34 @@
+---
+title: "QUIC-рукопожатие браузера через маппер хоста"
+description: Отключить браузерное рукопожатие QUIC у хостов Hysteria2 и XHTTP/3 для сервера с сертификатом Ed25519 или выбрать браузер.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prizrak-Core по умолчанию отправляет [рукопожатие QUIC браузера](/ru/config/proxies/quic-parrot/) 👻 у узлов Hysteria2 и у VLESS поверх XHTTP с `alpn: [h3]`, как это делают клиенты Xray в панели. Для этого в маппере ничего не нужно. Браузер берётся из `client-fingerprint`, который Remnawave записывает в узел из TLS-отпечатка хоста: `firefox` даёт Firefox 160, `safari` — Safari, любое другое значение — Chrome.
+
+Маппер нужен, если у сервера **сертификат Ed25519**. Браузеры не предлагают подпись Ed25519, поэтому с таким сервером рукопожатие не пройдёт, и у клиентов Xray тоже. Либо замените сертификат на ECDSA или RSA, либо отправляйте с этого хоста собственное рукопожатие quic-go:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "disable-chrome-parrot", "value": true }
+  ],
+  "base64": []
+}
+```
+
+```yaml
+proxies:
+  - name: 🇳🇱 Нидерланды
+    type: hysteria2
+    # ...
+    disable-chrome-parrot: true
+```
+
+Чтобы выбрать другой браузер, чем даёт отпечаток хоста, задайте ключ напрямую, например `{ "op": "set", "to": "client-fingerprint", "value": "firefox" }`.
+
+<Aside type="note">
+Обычный mihomo эти ключи игнорирует и отправляет рукопожатие quic-go. В подписке Xray JSON Prizrak-Core сам читает `finalmask.quicParams.disableChromeParrot`, поэтому список `xrayJson` остаётся пустым.
+</Aside>

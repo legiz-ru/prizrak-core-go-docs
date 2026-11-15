@@ -1,6 +1,6 @@
 ---
 title: "👻 XHTTP и HTTP/2"
-description: "XHTTP и HTTP/2 в Prizrak-Core: регулятор потока h2-flow на клиенте и листенере, одно HTTP/2-соединение за раз, буфер отправки 32 КиБ, аплоад методами GET и OPTIONS, KeepAlive для Mux.Cool."
+description: "XHTTP и HTTP/2 в Prizrak-Core: регулятор потока h2-flow на клиенте и листенере, одно HTTP/2-соединение за раз, буфер отправки 32 КиБ, аплоад методами GET и OPTIONS, KeepAlive для Mux.Cool, рукопожатие QUIC браузера поверх HTTP/3."
 ---
 
 Доработки XHTTP в Prizrak-Core. Регулятор потока и буфер отправки сделаны по идеям [Medium1992](https://github.com/Medium1992) из [mihomo-proxy-ros](https://github.com/Medium1992/mihomo-proxy-ros), параметры листенера повторяют [Jolymmiles/Xray-core](https://github.com/Jolymmiles/Xray-core) и Xray-core.
@@ -81,6 +81,21 @@ xhttp-opts:
 ## Аплоад методом OPTIONS
 
 `uplink-http-method: OPTIONS` работает с листенером Prizrak-Core так же, как с Xray начиная с v26.10.31 ([XTLS/Xray-core#7290](https://github.com/XTLS/Xray-core/pull/7290)): запрос `OPTIONS` с заголовком `Access-Control-Request-Method` — это CORS-preflight, без него — аплоад. Раньше листенер отвечал на любой `OPTIONS` как на preflight и терял данные. Клиент отправляет любой заданный метод, в том числе `OPTIONS`; сервер должен быть Xray v26.10.31 или новее либо Prizrak-Core после v1.19.33-r8.
+
+## HTTP/3: рукопожатие QUIC браузера
+
+При `alpn: [h3]` рукопожатие QUIC у XHTTP по умолчанию браузерное, браузер берётся из `client-fingerprint`, как у клиента XHTTP/3 в Xray: Chrome, либо Firefox 160 для `firefox` и Safari для `safari`. Сторона загрузки из `download-settings` берёт браузер из своего `client-fingerprint`. `disable-chrome-parrot: true` на прокси отправляет собственное рукопожатие quic-go на обеих сторонах, как `finalmask.quicParams.disableChromeParrot` в Xray. Сертификат сервера должен быть ECDSA или RSA. См. [QUIC-рукопожатие браузера](/ru/config/proxies/quic-parrot/).
+
+```yaml
+proxies:
+  - name: vless-xhttp-h3
+    type: vless
+    # ...
+    network: xhttp
+    alpn: [h3]
+    client-fingerprint: firefox     # рукопожатие QUIC от Firefox
+    # disable-chrome-parrot: true   # собственное от quic-go, например для сервера с сертификатом Ed25519
+```
 
 ## Листенер: регулятор, настройки HTTP/2 и KeepAlive для Mux.Cool
 

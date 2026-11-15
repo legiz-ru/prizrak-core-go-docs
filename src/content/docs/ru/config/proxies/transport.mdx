@@ -151,6 +151,7 @@ proxies:
   # private-key: ...
   servername: xxx.com
   client-fingerprint: chrome
+  # disable-chrome-parrot: false # 👻 при alpn: [h3] true отправляет собственное рукопожатие QUIC от quic-go вместо браузерного (по client-fingerprint)
   encryption: ""
   xhttp-opts:
     path: "/"

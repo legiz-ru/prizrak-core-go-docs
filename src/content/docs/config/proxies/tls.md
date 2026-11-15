@@ -134,6 +134,8 @@ If `random` is selected, a modern browser fingerprint will be generated based on
 
 :::tip[👻 prizrak-utls]
 Prizrak-Core uses its own uTLS fork with current fingerprints (Chrome 155, Firefox 156, Safari 26.3) and adds `randomized`, `chrome120`, `firefox120`, `safari16`, `chrome_psk*`, `chrome_pq*` and `none`. See [prizrak-utls](/config/proxies/prizrak-utls/).
+
+For hysteria2 and for VLESS over HTTP/3, `client-fingerprint` also picks the browser of the QUIC handshake: `chrome`, `firefox` or `safari`. See [Browser QUIC handshake](/config/proxies/quic-parrot/).
 :::
 
 ## reality-opts

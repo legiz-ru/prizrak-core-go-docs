@@ -1,0 +1,68 @@
+---
+title: "👻 QUIC-рукопожатие браузера"
+description: "Hysteria2, VLESS поверх HTTP/3 и xdns DoH поверх HTTP/3 по умолчанию отправляют рукопожатие QUIC браузера Chrome, Firefox или Safari, как Xray-core; disable-chrome-parrot его отключает."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+По умолчанию перечисленные ниже клиенты QUIC отправляют рукопожатие браузера, как Xray-core и официальный клиент Hysteria: пакеты Initial, идентификаторы соединения, TLS ClientHello и транспортные параметры браузера. mihomo отправляет собственное рукопожатие quic-go, и пассивный наблюдатель, классифицирующий рукопожатия QUIC, отличает его от браузера именно по этим признакам.
+
+## Где действует
+
+| Клиент | Браузер берётся из | Как отключить |
+|---|---|---|
+| [`hysteria2`](/ru/config/proxies/hysteria2/#disable-chrome-parrot-) | `client-fingerprint` | `disable-chrome-parrot: true` |
+| `vless` с `network: xhttp` и `alpn: [h3]` | `client-fingerprint`; сторона загрузки из `download-settings` берёт свой | `disable-chrome-parrot: true` (обе стороны) |
+| `vless` с `network: xdrive` и `alpn: [h3]` | `client-fingerprint` | `disable-chrome-parrot: true` |
+| DoH-резолвер [xdns](/ru/config/proxies/finalmask/#резолверы-udp-tcp-и-doh) с `tls-config.alpn: [h3]` | `tls-config.fingerprint` | `quic-config.disable-chrome-parrot: true` |
+
+`disable-chrome-parrot: true` отправляет собственное рукопожатие quic-go, как `finalmask.quicParams.disableChromeParrot` в Xray. Всё остальное, что работает по QUIC, не изменилось: TUIC, MASQUE, Hysteria v1, TrustTunnel, ShadowQUIC, а также DoQ и DoH поверх HTTP/3 из раздела [DNS](/ru/config/dns/).
+
+## Какой браузер
+
+Браузер выбирается так же, как Xray-core выбирает его по `tlsSettings.fingerprint`:
+
+| `client-fingerprint` | Рукопожатие QUIC |
+|---|---|
+| `firefox` (и `hellofirefox_auto`, `hellofirefox_156`, `hellofirefox_160` из Xray) | Firefox 160 |
+| `safari` (и `hellosafari_auto`, `hellosafari_27_2` из Xray) | Safari 27.2; Chrome, если у прокси есть `ech-opts` (у резолвера xdns — `ech-config-list`): записанный Safari не отправляет ECH |
+| любое другое: `chrome`, пустое, `ios`, `random`, `randomized`, `firefox120`… | Chrome |
+
+Профили сняты с самих браузеров:
+
+| | Chrome | Firefox 160 | Safari 27.2 |
+|---|---|---|---|
+| Датаграммы Initial | 1250 байт, по IPv6 1230 (quic-go шлёт 1280) | 1252 байта, по IPv6 1232, добивка нулями после пакета | 1200 байт |
+| ClientHello по пакетам Initial | режется на несколько кадров CRYPTO вперемешку с кадрами PING и кусками заполнения (chaos protection Chrome) | разрезан посередине имени сервера, на два Initial | один кадр CRYPTO до 999 байт на Initial, дальше заполнение |
+| Идентификатор соединения отправителя | пустой | 3 байта | пустой |
+| TLS ClientHello | Chrome: ключи X25519MLKEM768 и X25519, ALPS, сжатие сертификатов Brotli, GREASE ECH, расширения в случайном порядке | NSS: ключи X25519MLKEM768, X25519 и P-256, delegated credentials, record size limit, GREASE ECH | Safari: GREASE, ключи X25519MLKEM768 и X25519, без ECH и ALPS |
+| Транспортные параметры | набор Chrome в случайном порядке, параметр GREASE, `google_connection_options`, `max_datagram_frame_size` 65536 | набор neqo в его порядке, `max_datagram_frame_size` 65535 | семь, в сдвигаемом порядке; без таймаута простоя и без `max_datagram_frame_size` |
+| Окна, поток / соединение | 6 / 15 МиБ | 12 / 24 МиБ | 2 / 16 МиБ |
+| Таймаут простоя | 30 с | 30 с | собственный у прокси |
+
+- Окна браузера заменяют начальные окна прокси (`initial-stream-receive-window` и `initial-connection-receive-window` у hysteria2, окна в `quic-config` резолвера xdns). Параметры `max-*` по-прежнему ограничивают автоподстройку, но значение ниже окна браузера поднимается до него.
+- По TCP `client-fingerprint` задаёт отпечаток TLS, и там `safari` — это Safari 26.3, а `random` выбирает браузер на процесс (см. [prizrak-utls](/ru/config/proxies/prizrak-utls/)). По QUIC `random` — это Chrome, как в Xray.
+
+## Что нужно серверу
+
+Настраивать ничего не нужно: подходит любой сервер Hysteria2 (официальный Hysteria, Xray, sing-box, листенер mihomo), инбаунд XHTTP/3 в Xray, хранилище или DoH-сервер по HTTP/3. Но:
+
+- **Сертификат должен быть ECDSA или RSA.** Ни один из этих браузеров не предлагает подпись Ed25519, поэтому с сертификатом Ed25519 рукопожатие не пройдёт. Такому серверу нужен `disable-chrome-parrot: true` на клиенте или другой сертификат. С клиентами Xray то же самое.
+- **Safari и UDP в hysteria2.** Рукопожатие Safari не объявляет `max_datagram_frame_size`, а hysteria2 возит UDP в кадрах DATAGRAM. UDP вернётся только от сервера, который всё равно их отправляет: так делают инбаунд hysteria в Xray и листенер Prizrak-Core. TCP работает с любым сервером.
+
+<Aside type="caution" title="После обновления">
+До v1.19.34-r1 включительно Prizrak-Core отправлял рукопожатие quic-go, а оно предлагает Ed25519. После обновления каждый узел hysteria2 и каждый узел VLESS поверх HTTP/3 имитирует браузер, в том числе из подписок Mihomo, поэтому сервер с сертификатом Ed25519 для них перестаёт работать, пока не заменят сертификат или узел не получит `disable-chrome-parrot: true`. Для хостов Remnawave это одна операция маппера: см. [QUIC-рукопожатие браузера через маппер хоста](/ru/remnawave/quic-handshake/).
+</Aside>
+
+Остальные параметры работают: пиннинг `fingerprint` и `name-cert-verify`, mTLS, `ech-opts`, прыжки по портам и переподключения hysteria2 (у каждого подключения та же форма). С `obfs` у hysteria2 (`salamander`, `gecko`) пакеты обфусцированы, и форма браузера в сети не видна.
+
+## Из Xray JSON и ссылок
+
+Клиенты Xray тоже имитируют браузер по умолчанию, поэтому сконвертированный узел получает `disable-chrome-parrot`, только если подписка имитацию отключает:
+
+| Xray | Prizrak-Core |
+|---|---|
+| `finalmask.quicParams.disableChromeParrot: true` у исходящего hysteria или у исходящего vless поверх xhttp или xdrive с `alpn` ровно `["h3"]` | `disable-chrome-parrot: true` |
+| `tlsSettings.fingerprint` | `client-fingerprint` |
+| `fm` ссылки `vless://` или `hysteria2://` | то же, что `finalmask` выше |
+| `fp` ссылки `hysteria2://` | `client-fingerprint` |

@@ -1,0 +1,34 @@
+---
+title: "Browser QUIC handshake via the host mapper"
+description: Turn off the browser QUIC handshake of Hysteria2 and XHTTP/3 hosts for a server with an Ed25519 certificate, or pick the browser.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Prizrak-Core sends [a browser's QUIC handshake](/config/proxies/quic-parrot/) 👻 by default for Hysteria2 nodes and for VLESS over XHTTP with `alpn: [h3]`, as the Xray clients of the panel do. Nothing is needed in the mapper for that. The browser comes from `client-fingerprint`, which Remnawave writes into the node from the host's TLS fingerprint: `firefox` gives Firefox 160, `safari` Safari, anything else Chrome.
+
+The mapper is needed when the server has an **Ed25519 certificate**. Browsers offer no Ed25519 signature, so the handshake fails against such a server, for Xray clients as well. Either replace the certificate with an ECDSA or RSA one, or send quic-go's own handshake from this host:
+
+```json
+{
+  "xrayJson": [],
+  "mihomo": [
+    { "op": "set", "to": "disable-chrome-parrot", "value": true }
+  ],
+  "base64": []
+}
+```
+
+```yaml
+proxies:
+  - name: 🇳🇱 Netherlands
+    type: hysteria2
+    # ...
+    disable-chrome-parrot: true
+```
+
+To pick another browser than the host's fingerprint gives, set the key itself, for example `{ "op": "set", "to": "client-fingerprint", "value": "firefox" }`.
+
+<Aside type="note">
+Plain mihomo ignores these keys and sends quic-go's handshake. In an Xray JSON subscription Prizrak-Core reads `finalmask.quicParams.disableChromeParrot` itself, so the `xrayJson` list stays empty.
+</Aside>

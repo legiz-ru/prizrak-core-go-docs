@@ -92,7 +92,7 @@ The TLS fields of the proxy (`tls`, `servername`, `alpn`, `client-fingerprint`, 
 - `https://` URLs always use TLS, even without `tls: true`.
 - `servername`: the host of the URL by default.
 - `client-fingerprint`: `chrome` by default.
-- `alpn`: `h2` and `http/1.1` by default. `alpn: [h3]` on its own means HTTP/3: QUIC over UDP, with no fallback to TCP.
+- `alpn`: `h2` and `http/1.1` by default. `alpn: [h3]` on its own means HTTP/3: QUIC over UDP, with no fallback to TCP. Its QUIC handshake is that of the browser of `client-fingerprint` by default, as in Xray; `disable-chrome-parrot: true` sends quic-go's own. See [Browser QUIC handshake](/config/proxies/quic-parrot/).
 - `address` and `port` of `xdrive-opts` say where to connect instead of the host and port of the URL. The host of the URL stays in the `Host` header and is the default SNI.
 - `dialer-proxy`, `interface-name` and `routing-mark` of the proxy apply to the connections to the storage.
 - `finalmask.tcp` wraps the connections to the storage, under TLS. `finalmask.udp` works only with `alpn: [h3]` and wraps the QUIC socket; to Google Drive only `noise` is accepted there, which is checked when the config loads.
@@ -393,7 +393,7 @@ The Remnawave panel does not know this transport, but the host mapper can turn t
 
 - VLESS only.
 - Clients on regular mihomo do not know the transport: they get a proxy that does not connect.
-- Over HTTP/3 the Chrome QUIC fingerprint and BBR of Xray are not ported, so the QUIC handshake differs from Xray's, and `finalmask.quicParams` is not read. A listener has no HTTP/3 at all.
+- Over HTTP/3 the BBR of Xray is not ported, and of `finalmask.quicParams` only `disableChromeParrot` is read. A listener has no HTTP/3 at all.
 - `s3` has been run only against a fake server that checks the SigV4 signature. Real S3 and virtual-hosted addressing have not been tried.
 - The `oauth2` and `static` logins and the two-step operations of a template are covered by the tests ported from Xray only.
 - Long runs and the behavior under Google's quotas have not been measured.

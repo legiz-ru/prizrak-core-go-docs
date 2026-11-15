@@ -1,6 +1,6 @@
 ---
 title: "👻 XHTTP and HTTP/2"
-description: "XHTTP and HTTP/2 in Prizrak-Core: the h2-flow governor on the client and the listener, one HTTP/2 connection at a time, the 32 KiB send buffer, GET and OPTIONS uploads, Mux.Cool KeepAlive."
+description: "XHTTP and HTTP/2 in Prizrak-Core: the h2-flow governor on the client and the listener, one HTTP/2 connection at a time, the 32 KiB send buffer, GET and OPTIONS uploads, Mux.Cool KeepAlive, the browser's QUIC handshake over HTTP/3."
 ---
 
 Improvements of XHTTP in Prizrak-Core. The flow governor and the send buffer are based on ideas by [Medium1992](https://github.com/Medium1992) from [mihomo-proxy-ros](https://github.com/Medium1992/mihomo-proxy-ros); the listener options follow [Jolymmiles/Xray-core](https://github.com/Jolymmiles/Xray-core) and Xray-core.
@@ -81,6 +81,21 @@ In `packet-up` mode an upload is also sent again on a new connection when the se
 ## OPTIONS uploads
 
 `uplink-http-method: OPTIONS` works with the Prizrak-Core listener as with Xray since v26.10.31 ([XTLS/Xray-core#7290](https://github.com/XTLS/Xray-core/pull/7290)): an `OPTIONS` request with `Access-Control-Request-Method` is a CORS preflight, one without it is an upload. Before, the listener answered every `OPTIONS` as a preflight and dropped the data. The client sends any method it is given, `OPTIONS` included; the server must be Xray v26.10.31 or newer, or Prizrak-Core after v1.19.33-r8.
+
+## HTTP/3: the browser's QUIC handshake
+
+With `alpn: [h3]` the QUIC handshake of XHTTP is that of the browser of `client-fingerprint` by default, as Xray's XHTTP/3 client sends it: Chrome, or Firefox 160 for `firefox` and Safari for `safari`. The download side of `download-settings` takes the browser of its own `client-fingerprint`. `disable-chrome-parrot: true` on the proxy sends quic-go's own handshake on both sides, as `finalmask.quicParams.disableChromeParrot` in Xray. The server's certificate must be ECDSA or RSA. See [Browser QUIC handshake](/config/proxies/quic-parrot/).
+
+```yaml
+proxies:
+  - name: vless-xhttp-h3
+    type: vless
+    # ...
+    network: xhttp
+    alpn: [h3]
+    client-fingerprint: firefox     # Firefox's QUIC handshake
+    # disable-chrome-parrot: true   # quic-go's own, e.g. for a server with an Ed25519 certificate
+```
 
 ## Listener: governor, HTTP/2 settings and Mux.Cool KeepAlive
 

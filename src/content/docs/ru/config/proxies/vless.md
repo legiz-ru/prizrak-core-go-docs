@@ -110,4 +110,5 @@ Padding — необязательный параметр, применяемы�
 - [`xhttp-opts.h2-flow`](/ru/config/proxies/xhttp/): регулятор потока HTTP/2 у XHTTP.
 - `network: mkcp` (алиас `kcp`): [VLESS поверх mKCP](/ru/config/proxies/finalmask/#vless-поверх-mkcp), как в Xray-core после finalmask.
 - [`xdrive-opts`](/ru/config/proxies/xdrive/): транспорт XDRIVE при `network: xdrive`. Нужны `encryption` и `mux.cool`, `flow` запрещён.
+- [`disable-chrome-parrot`](/ru/config/proxies/quic-parrot/): поверх HTTP/3 (`network: xhttp` или `xdrive` с `alpn: [h3]`) рукопожатие QUIC по умолчанию браузерное, браузер берётся из `client-fingerprint`, как в Xray; `true` отправляет собственное рукопожатие quic-go.
 - [`mux.cool`](/ru/config/proxies/mux-cool/) и [`udp-443`](/ru/config/proxies/udp-443/): см. [общие поля](/ru/config/proxies/).

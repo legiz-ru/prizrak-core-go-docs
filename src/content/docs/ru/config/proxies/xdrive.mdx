@@ -92,7 +92,7 @@ TLS-поля прокси (`tls`, `servername`, `alpn`, `client-fingerprint`, `s
 - Для адресов `https://` TLS работает всегда, даже без `tls: true`.
 - `servername`: по умолчанию хост из URL.
 - `client-fingerprint`: по умолчанию `chrome`.
-- `alpn`: по умолчанию `h2` и `http/1.1`. Только `alpn: [h3]` означает HTTP/3: QUIC поверх UDP, без отката на TCP.
+- `alpn`: по умолчанию `h2` и `http/1.1`. Только `alpn: [h3]` означает HTTP/3: QUIC поверх UDP, без отката на TCP. Рукопожатие QUIC по умолчанию браузерное, браузер берётся из `client-fingerprint`, как в Xray; `disable-chrome-parrot: true` отправляет собственное рукопожатие quic-go. См. [QUIC-рукопожатие браузера](/ru/config/proxies/quic-parrot/).
 - `address` и `port` из `xdrive-opts` говорят, куда подключаться вместо хоста и порта из URL. Хост из URL остаётся в заголовке `Host` и служит SNI по умолчанию.
 - `dialer-proxy`, `interface-name` и `routing-mark` прокси действуют на соединения с хранилищем.
 - `finalmask.tcp` оборачивает соединения с хранилищем под TLS. `finalmask.udp` работает только при `alpn: [h3]` и оборачивает QUIC-сокет; до Google Drive из масок там допускается только `noise`, это проверяется при загрузке конфига.
@@ -393,7 +393,7 @@ vless://<uuid>@<server>:<port>?encryption=<encryption>&type=xdrive&service=googl
 
 - Только VLESS.
 - Клиенты на обычном mihomo транспорта не знают: они получат прокси, который не подключится.
-- По HTTP/3 не перенесены Chrome QUIC-отпечаток и BBR из Xray, поэтому рукопожатие QUIC отличается от Xray, а `finalmask.quicParams` не читается. На листенере HTTP/3 нет вообще.
+- По HTTP/3 не перенесён BBR из Xray, а из `finalmask.quicParams` читается только `disableChromeParrot`. На листенере HTTP/3 нет вообще.
 - `s3` проверялся только на поддельном сервере, который проверяет подпись SigV4. Настоящий S3 и адресация virtual-hosted не проверялись.
 - Вход `oauth2` и `static` и двухшаговые операции шаблона покрыты только тестами, перенесёнными из Xray.
 - Долгая работа и поведение под квотами Google не измерялись.

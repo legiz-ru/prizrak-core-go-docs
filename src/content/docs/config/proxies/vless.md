@@ -109,4 +109,5 @@ Traffic masks from Xray-core's `finalmask`: `tcp` masks (fragment, header-custom
 - [`reality-opts.mldsa65-verify`](/config/proxies/reality/): checks the ML-DSA-65 signature of the REALITY certificate.
 - [`xhttp-opts.h2-flow`](/config/proxies/xhttp/): the HTTP/2 flow governor of XHTTP.
 - [`xdrive-opts`](/config/proxies/xdrive/): the XDRIVE transport with `network: xdrive`. Needs `encryption` and `mux.cool`, and takes no `flow`.
+- [`disable-chrome-parrot`](/config/proxies/quic-parrot/): over HTTP/3 (`network: xhttp` or `xdrive` with `alpn: [h3]`) the QUIC handshake is that of the browser of `client-fingerprint` by default, as in Xray; `true` sends quic-go's own.
 - [`mux.cool`](/config/proxies/mux-cool/) and [`udp-443`](/config/proxies/udp-443/): see [common fields](/config/proxies/).

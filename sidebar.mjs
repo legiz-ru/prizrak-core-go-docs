@@ -82,6 +82,7 @@ export const sidebar = [
       l('👻 finalmask', null, '/config/proxies/finalmask/'),
       l('👻 XHTTP and HTTP/2', '👻 XHTTP и HTTP/2', '/config/proxies/xhttp/'),
       l('👻 XDRIVE', null, '/config/proxies/xdrive/'),
+      l('👻 Browser QUIC handshake', '👻 QUIC-рукопожатие браузера', '/config/proxies/quic-parrot/'),
       l('👻 freedom', null, '/config/proxies/freedom/'),
       l('Trojan', null, '/config/proxies/trojan/'),
       l('AnyTLS', null, '/config/proxies/anytls/'),
@@ -136,6 +137,7 @@ export const sidebar = [
     l('XHTTP h2-flow', null, '/remnawave/xhttp-h2-flow/'),
     l('XDRIVE', null, '/remnawave/xdrive/'),
     l('udp-443', null, '/remnawave/udp-443/'),
+    l('Browser QUIC handshake', 'QUIC-рукопожатие браузера', '/remnawave/quic-handshake/'),
   ]),
   l('API', null, '/api/'),
 ];

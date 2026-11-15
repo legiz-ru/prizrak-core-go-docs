@@ -109,3 +109,5 @@ TLS application-layer protocol negotiation list. The client must use one of the 
 ### certificate/private-key
 
 Paths to the TLS certificate files.
+
+👻 Clients that send a browser's QUIC handshake (Xray, the official Hysteria client, Prizrak-Core by default) need an ECDSA or RSA certificate: browsers offer no Ed25519 signature. The listener sends UDP in DATAGRAM frames also to a client whose handshake does not announce them, such as Safari's, as Xray's hysteria inbound does. See [Browser QUIC handshake](/config/proxies/quic-parrot/).

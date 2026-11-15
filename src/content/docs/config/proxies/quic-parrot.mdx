@@ -1,0 +1,68 @@
+---
+title: "👻 Browser QUIC handshake"
+description: "Hysteria2, VLESS over HTTP/3 and xdns DoH over HTTP/3 send the QUIC handshake of Chrome, Firefox or Safari by default, as Xray-core does; disable-chrome-parrot turns it off."
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+By default the QUIC clients below send the handshake of a browser, as Xray-core and the official Hysteria client do: the browser's Initial packets, connection IDs, TLS ClientHello and transport parameters. mihomo sends quic-go's own handshake, which a passive observer that classifies QUIC handshakes tells from a browser by exactly these traits.
+
+## Where it applies
+
+| Client | Browser from | Turn it off |
+|---|---|---|
+| [`hysteria2`](/config/proxies/hysteria2/#disable-chrome-parrot-) | `client-fingerprint` | `disable-chrome-parrot: true` |
+| `vless` with `network: xhttp` and `alpn: [h3]` | `client-fingerprint`; the download side of `download-settings` takes its own | `disable-chrome-parrot: true` (both sides) |
+| `vless` with `network: xdrive` and `alpn: [h3]` | `client-fingerprint` | `disable-chrome-parrot: true` |
+| [xdns](/config/proxies/finalmask/#resolvers-udp-tcp-and-doh) DoH resolver with `tls-config.alpn: [h3]` | `tls-config.fingerprint` | `quic-config.disable-chrome-parrot: true` |
+
+`disable-chrome-parrot: true` sends quic-go's own handshake, as `finalmask.quicParams.disableChromeParrot` does in Xray. Everything else that speaks QUIC is unchanged: TUIC, MASQUE, Hysteria v1, TrustTunnel, ShadowQUIC, and DoQ and DoH over HTTP/3 of the [DNS](/config/dns/) section.
+
+## Which browser
+
+The browser is picked as Xray-core picks it from `tlsSettings.fingerprint`:
+
+| `client-fingerprint` | QUIC handshake |
+|---|---|
+| `firefox` (and Xray's `hellofirefox_auto`, `hellofirefox_156`, `hellofirefox_160`) | Firefox 160 |
+| `safari` (and Xray's `hellosafari_auto`, `hellosafari_27_2`) | Safari 27.2; Chrome when the proxy has `ech-opts` (the xdns resolver: `ech-config-list`), as the captured Safari sends no ECH |
+| anything else: `chrome`, empty, `ios`, `random`, `randomized`, `firefox120`… | Chrome |
+
+The profiles come from captures of the browsers themselves:
+
+| | Chrome | Firefox 160 | Safari 27.2 |
+|---|---|---|---|
+| Initial datagrams | 1250 bytes, 1230 over IPv6 (quic-go sends 1280) | 1252 bytes, 1232 over IPv6, zero-padded after the packet | 1200 bytes |
+| ClientHello across the Initials | cut into several CRYPTO frames mixed with PING frames and runs of padding (Chrome's chaos protection) | cut in the middle of the server name, over two Initials | one CRYPTO frame of up to 999 bytes per Initial, then padding |
+| Source connection ID | empty | 3 bytes | empty |
+| TLS ClientHello | Chrome's: X25519MLKEM768 and X25519 key shares, ALPS, Brotli certificate compression, GREASE ECH, extensions in random order | NSS's: X25519MLKEM768, X25519 and P-256 key shares, delegated credentials, record size limit, GREASE ECH | Safari's: GREASE, X25519MLKEM768 and X25519 key shares, no ECH and no ALPS |
+| Transport parameters | Chrome's set in random order, a GREASE parameter, `google_connection_options`, `max_datagram_frame_size` 65536 | neqo's, in neqo's order, `max_datagram_frame_size` 65535 | seven, in a rotating order; no idle timeout and no `max_datagram_frame_size` |
+| Windows, stream / connection | 6 / 15 MiB | 12 / 24 MiB | 2 / 16 MiB |
+| Idle timeout | 30 s | 30 s | the proxy's own |
+
+- The browser's windows replace the initial windows of the proxy (`initial-stream-receive-window` and `initial-connection-receive-window` of hysteria2, the windows of an xdns `quic-config`). The `max-*` options still cap the auto-tuning, but a value below the browser's window is raised to it.
+- `client-fingerprint` names the TLS fingerprint over TCP too, where `safari` is Safari 26.3 and `random` picks a browser per process (see [prizrak-utls](/config/proxies/prizrak-utls/)). Over QUIC `random` is Chrome, as in Xray.
+
+## What the server needs
+
+Nothing to set: any Hysteria2 server (official Hysteria, Xray, sing-box, the mihomo listener), Xray's XHTTP/3 inbound, a storage service or a DoH server over HTTP/3. But:
+
+- **The certificate must be ECDSA or RSA.** None of these browsers offers an Ed25519 signature, so a server with an Ed25519 certificate fails the handshake. Such a server needs `disable-chrome-parrot: true` on the client, or another certificate. The same holds for Xray clients.
+- **Safari and the UDP of hysteria2.** Safari's handshake does not announce `max_datagram_frame_size`, and hysteria2 carries UDP in DATAGRAM frames. UDP comes back only from a server that sends them anyway: Xray's hysteria inbound and the Prizrak-Core listener do. TCP works with any server.
+
+<Aside type="caution" title="After the update">
+Up to v1.19.34-r1 Prizrak-Core sent quic-go's handshake, which offers Ed25519. After the update every hysteria2 node and every VLESS node over HTTP/3 parrots a browser, Mihomo subscriptions included, so a server with an Ed25519 certificate stops working for them until its certificate is replaced or the node gets `disable-chrome-parrot: true`. On Remnawave hosts that is one mapper operation: see [the browser QUIC handshake via the host mapper](/remnawave/quic-handshake/).
+</Aside>
+
+Other options keep working: `fingerprint` and `name-cert-verify` pinning, mTLS, `ech-opts`, port hopping and reconnects of hysteria2 (each dial gets the same shape). With hysteria2's `obfs` (`salamander`, `gecko`) the packets are obfuscated, so the browser's shape is not visible on the wire.
+
+## From Xray JSON and share links
+
+Xray's clients parrot the browser by default too, so a converted node gets `disable-chrome-parrot` only when the subscription turns parroting off:
+
+| Xray | Prizrak-Core |
+|---|---|
+| `finalmask.quicParams.disableChromeParrot: true` of a hysteria outbound, or of a vless outbound over xhttp or xdrive with `alpn` exactly `["h3"]` | `disable-chrome-parrot: true` |
+| `tlsSettings.fingerprint` | `client-fingerprint` |
+| `fm` of a `vless://` or `hysteria2://` link | the same as `finalmask` above |
+| `fp` of a `hysteria2://` link | `client-fingerprint` |

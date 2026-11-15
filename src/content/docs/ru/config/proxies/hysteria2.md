@@ -40,6 +40,8 @@ proxies:
   #   # name-cert-verify: example.com
   #   # ......
   # handshake-timeout: 30
+  # client-fingerprint: chrome # 👻 браузер рукопожатия QUIC: chrome (по умолчанию), firefox или safari
+  # disable-chrome-parrot: false # 👻 true: собственное рукопожатие QUIC от quic-go вместо браузерного
   ###специальные настройки quic-go, не изменяйте без необходимости, если не знаете, что делаете###
   # initial-stream-receive-window： 8388608
   # max-stream-receive-window： 8388608
@@ -90,3 +92,21 @@ proxies:
 ## handshake-timeout
 
 Указывается в секундах. После настройки тайм-аут рукопожатия не зависит от тайм-аута внешнего соединения. Значение по умолчанию — 0, что означает использование только тайм-аута внешнего соединения.
+
+## client-fingerprint 👻
+
+Браузер, чьё рукопожатие QUIC отправляет прокси, выбирается так же, как по `tlsSettings.fingerprint` в Xray: `firefox` — Firefox 160, `safari` — Safari 27.2 (Chrome при `ech-opts`), любое другое значение, в том числе пустое, — Chrome. mihomo для hysteria2 этот ключ игнорирует. См. [QUIC-рукопожатие браузера](/ru/config/proxies/quic-parrot/#какой-браузер).
+
+## disable-chrome-parrot 👻
+
+По умолчанию рукопожатие QUIC этого прокси похоже на браузерное, как у официального клиента Hysteria и Xray: пакеты Initial браузера (у Chrome 1250 байт, по IPv6 1230), идентификаторы соединения, TLS ClientHello и транспортные параметры. `true` отправляет собственное рукопожатие quic-go, как в mihomo и как `finalmask.quicParams.disableChromeParrot` в Xray. По умолчанию `false`.
+
+- Серверу ничего не нужно, но его сертификат должен быть ECDSA или RSA: браузеры не предлагают подпись Ed25519, поэтому серверу с сертификатом Ed25519 нужен `disable-chrome-parrot: true`.
+- Окна браузера заменяют `initial-stream-receive-window` и `initial-connection-receive-window` (у Chrome 6 МиБ на поток, 15 МиБ на соединение). Параметры `max-*` ограничивают автоподстройку, но значения ниже окон браузера поднимаются до них.
+- Прыжки по портам и переподключения сохраняют форму. С `obfs` пакеты обфусцированы, и форма в сети не видна.
+
+Что отправляет каждый браузер, что нужно серверу и как ключи приходят из Xray JSON и ссылок: [QUIC-рукопожатие браузера](/ru/config/proxies/quic-parrot/).
+
+:::caution[После обновления]
+До v1.19.34-r1 включительно hysteria2 отправлял рукопожатие quic-go. Теперь каждый узел hysteria2 имитирует браузер, хотя в его конфиге ничего не менялось, — так же, как в Xray: сервер с сертификатом Ed25519 для него перестаёт работать, а `initial-stream-receive-window` / `initial-connection-receive-window` больше не действуют. Такому серверу нужен сертификат ECDSA или RSA либо `disable-chrome-parrot: true` на узле ([через маппер хоста Remnawave](/ru/remnawave/quic-handshake/)).
+:::
