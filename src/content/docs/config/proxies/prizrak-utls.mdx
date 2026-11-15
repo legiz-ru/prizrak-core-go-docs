@@ -1,6 +1,6 @@
 ---
 title: "👻 uTLS: prizrak-utls"
-description: "The uTLS fork in Prizrak-Core: up-to-date Chrome 155, Firefox 156, Safari 26.3 fingerprints and what client-fingerprint means."
+description: "The uTLS fork in Prizrak-Core: up-to-date Chrome 155, Firefox 160, Safari 26.3 fingerprints and what client-fingerprint means."
 ---
 
 uTLS is the library that makes the TLS fingerprint (ClientHello) look like a real browser. It decides which browser a connection looks like for `client-fingerprint` and REALITY.
@@ -11,18 +11,18 @@ mihomo uses [metacubex/utls](https://github.com/metacubex/utls) v1.9.0-alpha.1 (
 2. **Up-to-date upstream [refraction-networking/utls](https://github.com/refraction-networking/utls)**: sync with `crypto/tls` from Go 1.27.1, the Chrome 155 fingerprint, fixes for compressed certificate decompression, GREASE and PSK fixes, MLKEM1024 key exchange. The fork still builds with Go 1.20.
 3. **REALITY ML-DSA-65**: see [REALITY](/config/proxies/reality/).
 4. **Key shares after the first**: the keys of every classical key share are kept, so a server may select any of them (backport of [refraction-networking/utls#416](https://github.com/refraction-networking/utls/pull/416), as in [Jolymmiles/utls](https://github.com/Jolymmiles/utls)).
-5. **Firefox 156**: a fingerprint taken from a capture of the browser itself; see [Firefox 156](#firefox-156) below.
+5. **Firefox 160**: a fingerprint taken from a capture of the browser itself; see [Firefox 160](#firefox-160) below.
 
 ## Which browser `client-fingerprint` means
 
 | `client-fingerprint` | mihomo v1.19.34 | Prizrak-Core |
 |----------------------|-----------------|--------------|
 | `chrome` | Chrome 133 | **Chrome 155**, 22 versions newer |
-| `firefox` | Firefox 148 | **Firefox 156**, 8 versions newer |
+| `firefox` | Firefox 148 | **Firefox 160**, 12 versions newer |
 | `safari` | Safari 26.3 | Safari 26.3 |
 | `ios`, `android`, `edge`, `360`, `qq` | unchanged | unchanged |
 
-`firefox` in mihomo is uTLS's own Firefox 148 parrot; in Prizrak-Core it is Firefox 156 as captured from the browser (see [below](#firefox-156)). In both cores `chrome`, `firefox` and `safari` carry the post-quantum `X25519MLKEM768` key exchange, as real browsers of these versions do (mihomo before v1.19.34: only `chrome`).
+`firefox` in mihomo is uTLS's own Firefox 148 parrot; in Prizrak-Core it is Firefox 160 as captured from the browser (see [below](#firefox-160)). In both cores `chrome`, `firefox` and `safari` carry the post-quantum `X25519MLKEM768` key exchange, as real browsers of these versions do (mihomo before v1.19.34: only `chrome`).
 
 :::note
 If a server does not understand the new fingerprints, pick an older one explicitly: `chrome120`, `firefox120` or `safari16`.
@@ -30,15 +30,19 @@ If a server does not understand the new fingerprints, pick an older one explicit
 
 Checked against live browsers on 2026-11-10: `chrome` sends the same ClientHello as Chrome 157 apart from the extension order, which Chrome shuffles on every connection anyway; `safari` matches Safari on iOS 27 and the TLS stack of macOS 26.6.
 
-## Firefox 156
+## Firefox 160
 
-`firefox` is Firefox 156.0 as captured from the browser, not a uTLS parrot: uTLS's newest Firefox, 148, is no longer what current Firefox sends. Compared with 148, Firefox 156:
+`firefox` is Firefox 160.0 as captured from the browser, not a uTLS parrot: uTLS's newest Firefox, 148, is no longer what current Firefox sends. On a fresh connection Firefox 160 sends the same ClientHello as Firefox 156, which `firefox` was before. Compared with 148 it:
 
 - no longer offers the `TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA` and `TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA` suites or the `ffdhe2048` and `ffdhe3072` groups;
 - sends an empty `session_ticket` and `psk_key_exchange_modes`;
 - sends a GREASE ECH payload of 240 bytes instead of 239.
 
-Everything that changes per connection — the client random, the session ID, the keys, the GREASE ECH bytes — is new on every connection, as in the browser; the `X25519` key share is the one inside `X25519MLKEM768`, as Firefox sends it. Prizrak-Core does not resume TLS sessions, so every ClientHello has the form of a first connection, which is the form that was captured. REALITY servers of Xray-core v26.11.9 accept it. prizrak-core-rs sends the same ClientHello for `firefox`.
+What changed against 156 is the GREASE ECH `enc`: it is now uniformly random bytes, as NSS draws it. uTLS put an X25519 public key there, whose last byte never has its top bit set, while half of the captured Firefox hellos have it set.
+
+Everything that changes per connection — the client random, the session ID, the keys, the GREASE ECH bytes — is new on every connection, as in the browser; the `X25519` key share is the one inside `X25519MLKEM768`, as Firefox sends it. Over TCP Prizrak-Core does not resume TLS sessions, so every ClientHello has the form of a first connection, which is the form that was captured. REALITY servers of Xray-core v26.11.9 accept it. prizrak-core-rs sends the same ClientHello layout for `firefox`.
+
+Over QUIC (hysteria2, VLESS over HTTP/3) `firefox` is Firefox 160's QUIC handshake, NSS's own ClientHello for QUIC: see [Browser QUIC handshake](/config/proxies/quic-parrot/).
 
 ## `randomized`, `random` and Firefox against P-256
 
