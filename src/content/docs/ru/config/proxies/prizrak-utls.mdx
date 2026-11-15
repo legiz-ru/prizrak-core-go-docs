@@ -51,5 +51,5 @@ mihomo использует [metacubex/utls](https://github.com/metacubex/utls) 
 - **`firefox` против серверов, выбирающих P-256.** Отпечатки Firefox шлют key share для `X25519` и `P-256`, а uTLS хранил ключ только первого: если сервер выбирал P-256, рукопожатие падало с `tls: invalid server key share`. Теперь хранятся ключи всех key share (пункт 4 выше). ClientHello не меняется.
 
 :::note
-`ios`, `android`, `edge`, `360` и `qq` не шлют `X25519MLKEM768`. Серверы REALITY в Xray их отклоняют; для REALITY выбирайте `chrome`, `firefox`, `safari` или `randomized`.
+`ios`, `android`, `edge`, `360` и `qq` не шлют `X25519MLKEM768`. Серверы REALITY в Xray их отклоняют; для REALITY выбирайте `chrome`, `firefox`, `safari` или `randomized`. [Листенер REALITY](/ru/config/proxies/reality/#каких-клиентов-принимает-листенер) в Prizrak-Core их принимает, если у него нет `require-mlkem: true`.
 :::

@@ -84,6 +84,9 @@ listeners:
     server-names:
       - test.com
     # max-time-difference: 0 # in milliseconds
+    # min-client-ver: 26.11.10 # 👻 client version bounds x.y.z, unset: any version
+    # max-client-ver: 26.11.10
+    # require-mlkem: false # 👻 true: only Client Hellos with X25519MLKEM768, as upstream Xray
     # proxy: ""
     # the following two limits are optional, used to rate-limit fallback connections that fail verification, bytesPerSec defaults to 0 which means disabled
     # fallback rate limiting is a fingerprint feature and is not recommended; if you are a panel/one-click script developer, make sure to randomize these parameters
@@ -136,7 +139,7 @@ listeners:
 ## 👻 Prizrak-Core options
 
 - `xhttp-config` takes `h2-flow` (the server side of the HTTP/2 flow governor), `h2-params` (HTTP/2 settings, as `h2Params` in Xray) and `mux-keep-alive-secs` / `mux-keep-alive-bytes` (KeepAlive for mux.cool downloads behind CDNs). See [XHTTP and HTTP/2](/config/proxies/xhttp/). `session-table` and `session-length` are client options and are not read by the listener; `uplink-http-method` has no effect on the server.
-- `reality-config` takes the Xray-style server options `target` (alias of `dest`), `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show` and `master-key-log`. `min-client-ver` defaults to `26.3.27` and cannot be lower. See [REALITY](/config/proxies/reality/).
+- `reality-config` takes the Xray-style server options `target` (alias of `dest`), `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show` and `master-key-log`, and `require-mlkem`. By default any client fingerprint and any client version are accepted; `require-mlkem: true` accepts only hellos with `X25519MLKEM768`, as upstream Xray. See [REALITY](/config/proxies/reality/#which-clients-the-listener-accepts).
 - `finalmask` with `tcp` masks, the server side of Xray-core's finalmask. See [finalmask](/config/proxies/finalmask/).
 - mux.cool from Xray clients is accepted without any option. See [mux.cool](/config/proxies/mux-cool/).
 - `xdrive-config` serves VLESS over XDRIVE: the same fields as `xdrive-opts` of a proxy, plus the TLS fields of the requests to the storage. It needs `decryption`, opens no socket and makes the other transport and TLS options unused. With `service: local` the `remote-folder` must be inside the home directory or `SAFE_PATHS`. See [XDRIVE](/config/proxies/xdrive/#server-a-vless-listener).

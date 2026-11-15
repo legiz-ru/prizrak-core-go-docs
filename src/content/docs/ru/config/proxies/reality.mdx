@@ -1,12 +1,13 @@
 ---
 title: "👻 REALITY: ML-DSA-65 и совместимость с Xray"
-description: "REALITY в Prizrak-Core: проверка подписи ML-DSA-65, ML-KEM как в Xray и новые параметры клиента и сервера."
+description: "REALITY в Prizrak-Core: проверка подписи ML-DSA-65, ML-KEM как в Xray, версия клиента, каких клиентов принимает листенер (require-mlkem) и новые параметры клиента и сервера."
 ---
 
 REALITY приведён в соответствие с текущим Xray-core. Используется реализация из [MetaCubeX/mihomo#2983](https://github.com/MetaCubeX/mihomo/pull/2983).
 
 - **ML-DSA-65.** Проверка постквантовой подписи сертификата REALITY, как в Xray. Клиент указывает публичный ключ `mldsa65-verify`, сервер — `mldsa65-seed`.
 - **ML-KEM, как в Xray.** REALITY всегда сохраняет отпечаток выбранного браузера, включая `X25519MLKEM768`. Опция `support-x25519mlkem768` больше не нужна и игнорируется. Для старых серверов укажите явный старый отпечаток, например `chrome120`.
+- **Версия клиента 26.11.10.** Клиент сообщает серверу эту версию Xray (до v1.19.34-r1 включительно — 26.7.11; mihomo сообщает 1.8.2), поэтому сервер с `minClientVer` не выше 26.11.10 его принимает.
 - **Новые параметры клиента** (названия как в Xray):
   - `password` — имя публичного ключа в Xray. Если он задан, ядро берёт его вместо `public-key`, но сам ключ `public-key` всё равно должен быть (можно пустой): с одним `password` прокси не создаётся, ошибка `'reality-opts' has unset fields: public-key`;
   - `spider-x`;
@@ -16,7 +17,8 @@ REALITY приведён в соответствие с текущим Xray-core
   - `target` — синоним `dest`;
   - `type`;
   - `xver`;
-  - `min-client-ver` / `max-client-ver`: диапазон версий клиента (`x.y.z`). У `min-client-ver` по умолчанию `26.3.27`, ниже задать нельзя, поэтому сервер REALITY на Prizrak-Core отклоняет клиентов, которые сообщают более старую версию Xray;
+  - `min-client-ver` / `max-client-ver`: границы версий клиента (`x.y.z`, каждая часть 0–255), по умолчанию не заданы: принимается любая версия (см. [ниже](#каких-клиентов-принимает-листенер));
+  - `require-mlkem`: принимать только Client Hello с `X25519MLKEM768`, по умолчанию `false` (см. [ниже](#каких-клиентов-принимает-листенер));
   - `mldsa65-seed`;
   - `show`;
   - `master-key-log`.
@@ -31,6 +33,29 @@ proxies:
       public-key: <X25519 public key>
       short-id: <short id>
       mldsa65-verify: <ML-DSA-65 public key, base64url>  # необязательно
+```
+
+## Каких клиентов принимает листенер
+
+По умолчанию листенер REALITY в Prizrak-Core принимает любой отпечаток и любую версию клиента, как [Jolymmiles/Xray-core](https://github.com/Jolymmiles/Xray-core):
+
+- **Отпечатки.** Client Hello, в котором `X25519MLKEM768` нет вовсе, проходит проверку по своему key share `X25519`: подключаются `ios`, `edge`, `android`, `360`, `qq`, старые отпечатки вроде `chrome120` и клиенты без гибридной группы. Hello, который предлагает `X25519MLKEM768`, подчиняется правилу апстрима ([XTLS/REALITY](https://github.com/XTLS/REALITY)): key share `X25519MLKEM768` один раз и перед необязательным `X25519`.
+- **Версии.** Нижней границы версии нет: подключаются обычные клиенты mihomo, которые сообщают версию REALITY 1.8.2. До v1.19.34-r1 включительно у `min-client-ver` по умолчанию было `26.3.27`, ниже задать было нельзя, и такие клиенты отклонялись.
+
+`require-mlkem: true` принимает только hello, которые проходят проверку через `X25519MLKEM768`, как апстримный Xray-core и как `requireMlkem` в Jolymmiles/Xray-core. `min-client-ver` и `max-client-ver`, если заданы, по-прежнему ограничивают версии. Эти параметры принимает любой листенер с `reality-config`: vless, vmess, trojan, socks, http, mixed.
+
+```yaml
+listeners:
+  - name: vless-reality
+    type: vless
+    # ...
+    reality-config:
+      dest: www.example.com:443
+      private-key: <X25519 private key>
+      short-id: [0123456789abcdef]
+      server-names: [www.example.com]
+      # min-client-ver: 26.3.27   # отклонять клиентов, сообщающих более старую версию
+      # require-mlkem: true       # только hello с X25519MLKEM768, как в апстримном Xray
 ```
 
 Добавить `mldsa65-verify` для пользователей подписки Remnawave можно через маппер хоста Remnawave, см. раздел [REALITY ML-DSA-65](/ru/remnawave/reality/) на странице интеграции с Remnawave.

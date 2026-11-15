@@ -66,6 +66,9 @@ listeners:
   #   server-names:
   #     - test.com
   #   # max-time-difference: 0 # in milliseconds
+  #   # min-client-ver: 26.11.10 # 👻 client version bounds x.y.z, unset: any version
+  #   # max-client-ver: 26.11.10
+  #   # require-mlkem: false # 👻 true: only Client Hellos with X25519MLKEM768, as upstream Xray
   #   # proxy: ""
   #   # the following two limits are optional, used to rate-limit fallback connections that fail verification, bytesPerSec defaults to 0 which means disabled
   #   # fallback rate limiting is a fingerprint feature and is not recommended; if you are a panel/one-click script developer, make sure to randomize these parameters
@@ -93,5 +96,5 @@ listeners:
 
 ## 👻 Prizrak-Core options
 
-- `finalmask` with `tcp` masks, and the Xray-style `reality-config` options (`target`, `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show`, `master-key-log`), as on the [VLESS listener](/config/inbound/listeners/vless/).
+- `finalmask` with `tcp` masks, and the Xray-style `reality-config` options (`target`, `type`, `xver`, `min-client-ver` / `max-client-ver`, `require-mlkem`, `mldsa65-seed`, `show`, `master-key-log`), as on the [VLESS listener](/config/inbound/listeners/vless/).
 - mux.cool from Xray clients is accepted without any option; this holds for every sing-based listener (VMess, Shadowsocks, AnyTLS, TUIC, Hysteria2…).

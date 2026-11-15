@@ -84,6 +84,9 @@ listeners:
     server-names:
       - test.com
     # max-time-difference: 0 # в миллисекундах
+    # min-client-ver: 26.11.10 # 👻 границы версии клиента x.y.z, не задано — любая версия
+    # max-client-ver: 26.11.10
+    # require-mlkem: false # 👻 true: только Client Hello с X25519MLKEM768, как в апстримном Xray
     # proxy: ""
     #следующие два limit необязательны, могут ограничивать скорость fallback-соединений, не прошедших проверку, bytesPerSec по умолчанию 0 (не включено)
     #ограничение скорости fallback является характеристикой, не рекомендуется включать, если вы разработчик панели/скрипта, обязательно рандомизируйте эти параметры
@@ -136,7 +139,7 @@ listeners:
 ## 👻 Параметры Prizrak-Core
 
 - `xhttp-config` принимает `h2-flow` (серверная часть регулятора потока HTTP/2), `h2-params` (настройки HTTP/2, как `h2Params` в Xray) и `mux-keep-alive-secs` / `mux-keep-alive-bytes` (KeepAlive для скачиваний mux.cool за CDN). См. [XHTTP и HTTP/2](/ru/config/proxies/xhttp/). `session-table` и `session-length` — параметры клиента, слушатель их не читает; `uplink-http-method` на сервере ни на что не влияет.
-- `reality-config` принимает серверные параметры в стиле Xray: `target` (алиас `dest`), `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show` и `master-key-log`. У `min-client-ver` по умолчанию `26.3.27`, ниже нельзя. См. [REALITY](/ru/config/proxies/reality/).
+- `reality-config` принимает серверные параметры в стиле Xray: `target` (алиас `dest`), `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show` и `master-key-log`, а также `require-mlkem`. По умолчанию принимаются любой отпечаток и любая версия клиента; `require-mlkem: true` принимает только hello с `X25519MLKEM768`, как апстримный Xray. См. [REALITY](/ru/config/proxies/reality/#каких-клиентов-принимает-листенер).
 - `finalmask` с масками `tcp` — серверная часть finalmask из Xray-core. См. [finalmask](/ru/config/proxies/finalmask/).
 - mux.cool от клиентов Xray принимается без параметров. См. [mux.cool](/ru/config/proxies/mux-cool/).
 - `xdrive-config` включает VLESS поверх XDRIVE: те же поля, что в `xdrive-opts` у прокси, плюс TLS-поля запросов к хранилищу. Нужен `decryption`, сокет не открывается, остальные транспортные и TLS-параметры листенера не используются. При `service: local` папка `remote-folder` должна лежать в домашнем каталоге или в `SAFE_PATHS`. См. [XDRIVE](/ru/config/proxies/xdrive/#сервер-листенер-vless).

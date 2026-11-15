@@ -51,5 +51,5 @@ Over QUIC (hysteria2, VLESS over HTTP/3) `firefox` is Firefox 160's QUIC handsha
 - **`firefox` against servers that select P-256.** Firefox fingerprints send key shares for `X25519` and `P-256`, and uTLS kept the key of the first only: a server that selected P-256 failed the handshake with `tls: invalid server key share`. The key of every share is now kept (part 4 above). The ClientHello is unchanged.
 
 :::note
-`ios`, `android`, `edge`, `360` and `qq` send no `X25519MLKEM768`. Xray's REALITY servers turn them away; with REALITY pick `chrome`, `firefox`, `safari` or `randomized`.
+`ios`, `android`, `edge`, `360` and `qq` send no `X25519MLKEM768`. Xray's REALITY servers turn them away; with REALITY pick `chrome`, `firefox`, `safari` or `randomized`. The [REALITY listener](/config/proxies/reality/#which-clients-the-listener-accepts) of Prizrak-Core accepts them unless it has `require-mlkem: true`.
 :::

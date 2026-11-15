@@ -66,6 +66,9 @@ listeners:
   #   server-names:
   #     - test.com
   #   # max-time-difference: 0 # в миллисекундах
+  #   # min-client-ver: 26.11.10 # 👻 границы версии клиента x.y.z, не задано — любая версия
+  #   # max-client-ver: 26.11.10
+  #   # require-mlkem: false # 👻 true: только Client Hello с X25519MLKEM768, как в апстримном Xray
   #   # proxy: ""
   #   #следующие два limit необязательны, могут ограничивать скорость fallback-соединений, не прошедших проверку, bytesPerSec по умолчанию 0 (не включено)
   #   #ограничение скорости fallback является характеристикой, не рекомендуется включать, если вы разработчик панели/скрипта, обязательно рандомизируйте эти параметры
@@ -93,5 +96,5 @@ listeners:
 
 ## 👻 Параметры Prizrak-Core
 
-- `finalmask` с масками `tcp` и параметры `reality-config` в стиле Xray (`target`, `type`, `xver`, `min-client-ver` / `max-client-ver`, `mldsa65-seed`, `show`, `master-key-log`), как у [слушателя VLESS](/ru/config/inbound/listeners/vless/).
+- `finalmask` с масками `tcp` и параметры `reality-config` в стиле Xray (`target`, `type`, `xver`, `min-client-ver` / `max-client-ver`, `require-mlkem`, `mldsa65-seed`, `show`, `master-key-log`), как у [слушателя VLESS](/ru/config/inbound/listeners/vless/).
 - mux.cool от клиентов Xray принимается без параметров; это верно для любого слушателя на sing (VMess, Shadowsocks, AnyTLS, TUIC, Hysteria2…).

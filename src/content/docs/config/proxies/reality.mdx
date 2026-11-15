@@ -1,12 +1,13 @@
 ---
 title: "👻 REALITY: ML-DSA-65 and Xray compatibility"
-description: "REALITY in Prizrak-Core: ML-DSA-65 signature verification, ML-KEM as in Xray and the new client and server options."
+description: "REALITY in Prizrak-Core: ML-DSA-65 signature verification, ML-KEM as in Xray, the client version, which clients the listener accepts (require-mlkem) and the new client and server options."
 ---
 
 REALITY is aligned with current Xray-core. The implementation comes from [MetaCubeX/mihomo#2983](https://github.com/MetaCubeX/mihomo/pull/2983).
 
 - **ML-DSA-65.** Verification of the post-quantum signature on the REALITY certificate, as in Xray. The client sets the public key `mldsa65-verify`, the server sets `mldsa65-seed`.
 - **ML-KEM as in Xray.** REALITY always keeps the fingerprint of the selected browser, including `X25519MLKEM768`. The `support-x25519mlkem768` option is no longer needed and is ignored. For older servers, set an older fingerprint explicitly, for example `chrome120`.
+- **Client version 26.11.10.** The client reports this Xray version to the server (up to v1.19.34-r1: 26.7.11; mihomo reports 1.8.2), so a server with `minClientVer` of 26.11.10 or lower accepts it.
 - **New client options** (named as in Xray):
   - `password`: the Xray name of the public key. If set, it is used instead of `public-key`, but the `public-key` key must still be present (it may be empty): with `password` alone the proxy fails with `'reality-opts' has unset fields: public-key`;
   - `spider-x`;
@@ -16,7 +17,8 @@ REALITY is aligned with current Xray-core. The implementation comes from [MetaCu
   - `target`: alias of `dest`;
   - `type`;
   - `xver`;
-  - `min-client-ver` / `max-client-ver`: client version range (`x.y.z`). `min-client-ver` defaults to `26.3.27` and cannot be set lower, so a REALITY server on Prizrak-Core rejects clients that report an older Xray version;
+  - `min-client-ver` / `max-client-ver`: client version bounds (`x.y.z`, 0–255 each), unset by default: any version is accepted (see [below](#which-clients-the-listener-accepts));
+  - `require-mlkem`: accept only Client Hellos with `X25519MLKEM768`, `false` by default (see [below](#which-clients-the-listener-accepts));
   - `mldsa65-seed`;
   - `show`;
   - `master-key-log`.
@@ -31,6 +33,29 @@ proxies:
       public-key: <X25519 public key>
       short-id: <short id>
       mldsa65-verify: <ML-DSA-65 public key, base64url>  # optional
+```
+
+## Which clients the listener accepts
+
+By default a REALITY listener of Prizrak-Core accepts every client fingerprint and every client version, as [Jolymmiles/Xray-core](https://github.com/Jolymmiles/Xray-core) does:
+
+- **Fingerprints.** A Client Hello that offers no `X25519MLKEM768` at all authenticates with its `X25519` key share: `ios`, `edge`, `android`, `360`, `qq`, older fingerprints such as `chrome120`, and clients that leave the hybrid group out connect. A hello that offers `X25519MLKEM768` follows upstream's rule ([XTLS/REALITY](https://github.com/XTLS/REALITY)): its `X25519MLKEM768` key share once, before an optional `X25519` one.
+- **Versions.** No version floor: plain mihomo clients, which report REALITY version 1.8.2, connect. Up to v1.19.34-r1 `min-client-ver` defaulted to `26.3.27` and could not be set lower, which turned them away.
+
+`require-mlkem: true` accepts only hellos that authenticate through `X25519MLKEM768`, as upstream Xray-core does and as `requireMlkem` of Jolymmiles/Xray-core. `min-client-ver` and `max-client-ver` still bound the versions when they are set. Every listener with `reality-config` takes these options: vless, vmess, trojan, socks, http, mixed.
+
+```yaml
+listeners:
+  - name: vless-reality
+    type: vless
+    # ...
+    reality-config:
+      dest: www.example.com:443
+      private-key: <X25519 private key>
+      short-id: [0123456789abcdef]
+      server-names: [www.example.com]
+      # min-client-ver: 26.3.27   # turn away clients that report an older version
+      # require-mlkem: true       # only hellos with X25519MLKEM768, as upstream Xray
 ```
 
 To add `mldsa65-verify` for Remnawave subscription users, use the Remnawave host mapper; see [REALITY ML-DSA-65](/remnawave/reality/) on the Remnawave integration page.
