@@ -51,6 +51,24 @@ proxy-groups:
 
 ---
 
+## Лог проверки
+
+На уровне `debug` каждая проверка оставляет одну строку. Сначала итог, затем что его решило — ответ `destination`, — и задержка, которая всегда берётся из `url`:
+
+```text
+Ping-config passed, proxy: NL, destination: GET https://speed.cloudflare.com/__down?bytes=51200 answered 51200 bytes in 840 ms, delay: 212 ms from url https://www.gstatic.com/generate_204, alive: true
+Ping-config failed, proxy: NL, destination: GET https://speed.cloudflare.com/__down?bytes=51200 failed after 3000 ms: context deadline exceeded, url https://www.gstatic.com/generate_204 answered in 212 ms, network is up, alive: false
+```
+
+- `passed` / `failed` — итог этой проверки. Решает `destination`: ответ, сколько байт за сколько времени, или ошибка. `the url itself` — профиль не спрашивает ничего, кроме `url` (`HEAD` к тому же адресу); `not asked` — до `destination` не дошло, не ответил сам `url`.
+- `delay … from url` — задержка, которую покажет группа, от `url` группы. Если `url` не задан — от стандартного `https://www.gstatic.com/generate_204`.
+- `network is up` — проверка не прошла, а сеть на устройстве есть: `connectivity` ответил.
+- `alive` — решение для группы. При `sampling > 1` неудачу может перекрыть окно: `alive: true by the sampling window`.
+
+Если `destination` на другом адресе, чем `url`, в логе сервера одна проверка видна двумя записями: к адресу `url` и к `destination`. На том же адресе `destination` обычно идёт по соединению самой проверки, и запись одна. `connectivity` идёт мимо узла и на сервер не попадает. До v1.19.34-r3 строка была `Ping-config checked` и показывала только `url`, `alive` и задержку.
+
+---
+
 ## Один профиль на url
 
 `ping-config` привязан к `url` группы. Любая проверка этого `url` идёт по профилю: от любой группы, от `health-check` провайдера с тем же url, из API и приложений. Если у двух групп один `url` и разные блоки, действует блок группы, которая выше в конфиге; второй игнорируется с предупреждением в логе.

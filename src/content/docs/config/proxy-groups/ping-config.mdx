@@ -51,6 +51,24 @@ The field is Prizrak-Core's only; mihomo does not have it.
 
 ---
 
+## The check's log line
+
+At the `debug` level each check leaves one line. It starts with the outcome, then what decided it, the answer of `destination`, then the delay, which always comes from `url`:
+
+```text
+Ping-config passed, proxy: NL, destination: GET https://speed.cloudflare.com/__down?bytes=51200 answered 51200 bytes in 840 ms, delay: 212 ms from url https://www.gstatic.com/generate_204, alive: true
+Ping-config failed, proxy: NL, destination: GET https://speed.cloudflare.com/__down?bytes=51200 failed after 3000 ms: context deadline exceeded, url https://www.gstatic.com/generate_204 answered in 212 ms, network is up, alive: false
+```
+
+- `passed` / `failed` is this check's outcome. `destination` decides it: its answer, how many bytes in how long, or the error. `the url itself` means the profile asks nothing but `url` (a `HEAD` to the same address); `not asked` means the check never got there because `url` itself failed.
+- `delay … from url` is the delay the group shows, measured on the group's `url`, or on the default `https://www.gstatic.com/generate_204` when the group sets none.
+- `network is up` means the check failed while the device was online: `connectivity` answered.
+- `alive` is the group's verdict. With `sampling > 1` the window can outweigh a failure: `alive: true by the sampling window`.
+
+When `destination` is on another address than `url`, the server's log shows one check as two records: one to the address of `url`, one to `destination`. On the same address `destination` usually goes over the check's own connection, and the record is one. `connectivity` goes around the node and never reaches the server. Before v1.19.34-r3 the line read `Ping-config checked` and showed only `url`, `alive` and the delay.
+
+---
+
 ## One profile per url
 
 `ping-config` belongs to the group's `url`. Every check of that `url` follows it: from any group, from a provider `health-check` on the same url, from the API and the apps. When two groups share a `url` with different blocks, the one higher in the config wins; the other is ignored with a warning in the log.
